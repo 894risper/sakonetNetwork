@@ -199,8 +199,8 @@ function DashboardView({ setNav }) {
       <div className="rounded-2xl p-4" style={{ background: c.primarySoft, border: `1px solid #C7D6E8` }}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>Demo network setup</h3>
-            <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Mkulima, Beauty, Jenga and Baraka are already onboarded network participants for the demo. GT10 is onboarded live during the presentation, then becomes the SACCO login used to view the network data.</p>
+            <h3 className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>Network setup</h3>
+            <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Mkulima, Beauty, Jenga and Baraka are onboarded network participants. GT10 becomes available once it is onboarded, then acts as the SACCO login used to view the network data.</p>
           </div>
           <Pill tone="neutral">5 network SACCOs</Pill>
         </div>
@@ -425,12 +425,12 @@ function SaccosView({ onOnboard }) {
     <div>
       <div className="flex items-center justify-between mb-4 gap-4">
         <div>
-          <p className="body" style={{ fontSize: 12, color: c.muted }}>Jenga and Baraka are available as onboarded demo SACCOs so the presenter can switch between their network views. GT10 is kept pending until it is added during the presentation.</p>
+          <p className="body" style={{ fontSize: 12, color: c.muted }}>Jenga and Baraka are onboarded SACCOs with their network views available. GT10 remains pending until it is onboarded.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-xl px-3 py-2" style={{ background: c.successSoft, border: `1px solid #BBD8C4` }}>
             <p className="body" style={{ fontSize: 11.5, color: c.success, fontWeight: 700 }}>{saccos.length} onboarded SACCOs</p>
-            <p className="body" style={{ fontSize: 10.5, color: c.muted }}>Demo network</p>
+            <p className="body" style={{ fontSize: 10.5, color: c.muted }}>Network</p>
           </div>
           <button onClick={onOnboard} className="body rounded-xl" style={{ padding: "9px 13px", fontSize: 12, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>+ Add new SACCO</button>
         </div>
@@ -467,7 +467,7 @@ function SaccosView({ onOnboard }) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>{s.name} · not yet onboarded</p>
-              <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>For the presentation, use <strong>+ Add new SACCO</strong> to add GT10. The form is pre-filled so the presenter only needs to review and submit it.</p>
+              <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Use <strong>+ Add new SACCO</strong> to onboard GT10. The form is pre-filled for review before submitting.</p>
             </div>
             <Pill tone="pending">Pending</Pill>
           </div>
@@ -771,7 +771,7 @@ export function SaccoCreationPage({ onBack }) {
         <div className="rounded-2xl p-6" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
           <p className="body" style={{ fontSize: 11, color: c.primary, fontWeight: 700, letterSpacing: .5 }}>SAKONET NETWORK ONBOARDING</p>
           <h1 className="disp" style={{ fontSize: 28, fontWeight: 700, color: c.ink, marginTop: 5 }}>Create and activate a SACCO</h1>
-          <p className="body" style={{ fontSize: 13, color: c.muted, lineHeight: 1.5, marginTop: 6 }}>Create the SACCO record, issue its network PIN and activate its KES 1,000,000 guarantee float in one demo flow.</p>
+          <p className="body" style={{ fontSize: 13, color: c.muted, lineHeight: 1.5, marginTop: 6 }}>Create the SACCO record, issue its network PIN and activate its KES 1,000,000 guarantee float in one flow.</p>
 
           {!created ? <>
             <div className="grid grid-cols-2 gap-4 mt-6">
@@ -920,10 +920,10 @@ export function SaccoNetworkLogin({ saccoCode = "GT10", autoOpen = false }) {
         <div className="rounded-2xl p-7" style={{ width: 430, background: c.panel, border: `1px solid ${c.line}`, boxShadow: "0 18px 50px rgba(0,0,0,.08)" }}>
           <p className="body" style={{ fontSize: 11, color: c.primary, fontWeight: 800, letterSpacing: .6 }}>SAKONET NETWORK ACCESS</p>
           <h1 className="disp" style={{ fontSize: 27, fontWeight: 700, color: c.ink, marginTop: 6 }}>{sacco.name}</h1>
-          <p className="body" style={{ fontSize: 12, color: c.muted, lineHeight: 1.5, marginTop: 5 }}>Read-only SACCO network workspace. Use this view to demonstrate the requests, guarantees, borrowers and float this SACCO can see through SAKONET.</p>
+          <p className="body" style={{ fontSize: 12, color: c.muted, lineHeight: 1.5, marginTop: 5 }}>Read-only SACCO network workspace, showing the requests, guarantees, borrowers and float this SACCO can see through SAKONET.</p>
           <input value={pin} onChange={(e) => setPin(e.target.value)} type="password" inputMode="numeric" placeholder="6-digit network PIN" className="body w-full rounded-xl mt-5" style={{ padding: "12px", fontSize: 13, border: `1px solid ${c.line}` }} />
           {error && <p className="body" style={{ color: c.danger, fontSize: 12, marginTop: 8 }}>{error}</p>}
-          <p className="body" style={{ color: c.muted, fontSize: 11, marginTop: 8 }}>Demo network PIN: <strong>{sacco.networkPin}</strong></p>
+          <p className="body" style={{ color: c.muted, fontSize: 11, marginTop: 8 }}>Network PIN: <strong>{sacco.networkPin}</strong></p>
           <button onClick={login} className="w-full rounded-xl body mt-4" style={{ padding: "12px 0", background: c.primary, color: "#fff", fontWeight: 700 }}>Open network workspace</button>
         </div>
       </div>

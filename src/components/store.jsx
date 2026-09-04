@@ -6,7 +6,7 @@ import { createContext, useContext, useReducer, useCallback, useMemo, useEffect 
    Data automatically saves to localStorage and loads on refresh
 ----------------------------------------------------------------- */
 
-const STORAGE_KEY = "sakonet_store_v10";
+const STORAGE_KEY = "sakonet_store_v11";
 
 const now = () => new Date().toLocaleTimeString("en-KE", { hour12: false });
 
@@ -16,7 +16,7 @@ const defaultInitialState = {
     MKU: { code: "MKU", name: "Mkulima SACCO", contact: "Esther Nyokabi", email: "admin@mkulima.co.ke", phone: "0700000000", registrationNo: "SACCO-MKU-001", networkPin: "482913", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 0 },
     BTY: { code: "BTY", name: "Beauty SACCO", contact: "Halima Juma", email: "admin@beautysacco.co.ke", phone: "0711000000", registrationNo: "SACCO-BTY-001", networkPin: "615204", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 0 },
     JEN: { code: "JEN", name: "Jenga SACCO", contact: "Brian Otieno", email: "admin@jenga.co.ke", phone: "0722000000", registrationNo: "SACCO-JEN-001", networkPin: "734128", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 200000 },
-    BAR: { code: "BAR", name: "Baraka SACCO", contact: "Consolata Wanjiru", email: "admin@baraka.co.ke", phone: "0733000000", registrationNo: "SACCO-BAR-001", networkPin: "891306", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 240000 },
+    BAR: { code: "BAR", name: "Baraka SACCO", contact: "Consolata Wanjiru", email: "admin@baraka.co.ke", phone: "0733000000", registrationNo: "SACCO-BAR-001", networkPin: "891306", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 180000 },
     GT10: { code: "GT10", name: "GT10 SACCO", contact: "GT10 Administrator", email: "admin@gt10sacco.co.ke", phone: "0700100010", registrationNo: "GT10-001", networkPin: "246810", status: "pending", onboarded: false, joined: null, totalFloat: 0, locked: 0 },
   },
 

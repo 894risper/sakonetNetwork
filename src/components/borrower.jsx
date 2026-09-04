@@ -709,14 +709,13 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
 
   useEffect(() => {
     if (!extSacco) return;
-    const demoMember = selectedMember;
-    if (!demoMember) {
+    if (!selectedMember) {
       setExtMemberNo("");
       setExtPhone("");
       return;
     }
-    setExtMemberNo(demoMember.memberNo);
-    setExtPhone(demoMember.phone || "");
+    setExtMemberNo(selectedMember.memberNo);
+    setExtPhone(selectedMember.phone || "");
   }, [extSacco?.code, selectedMember?.memberNo]);
   return (
     <div className="rounded-2xl p-4" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}>
@@ -725,7 +724,7 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
         <p className="inter" style={{ fontSize: 12.5, fontWeight: 700, color: c.sakonet }}>Via Sakonet — intersacco guarantorship</p>
       </div>
       <p className="inter" style={{ fontSize: 11.5, fontWeight: 600, color: c.text, marginBottom: 6 }}>
-        {allSaccos ? "Guarantor's SACCO — choose a demo onboarded SACCO" : "Guarantor's SACCO"}
+        {allSaccos ? "Guarantor's SACCO — choose an onboarded SACCO" : "Guarantor's SACCO"}
       </p>
       <div className="flex gap-2 mb-3 flex-wrap">
         {partnerSaccos.map((s) => {
@@ -744,14 +743,26 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
       </div>
 
       {selectedMember && (
-        <div className="rounded-xl p-3 mb-3" style={{ background: c.card, border: `1px solid ${c.sakonetBorder}` }}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="inter" style={{ fontSize: 10.5, color: c.muted, fontWeight: 600 }}>Demo guarantor · details auto-filled</p>
-              <p className="inter" style={{ fontSize: 13.5, fontWeight: 700, color: c.text, marginTop: 3 }}>{selectedMember.name}</p>
-              <p className="inter" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{selectedMember.memberNo} · {selectedMember.phone || "Phone on SACCO record"}</p>
-            </div>
-            <CheckCircle2 size={17} color={c.success} />
+        <div className="flex flex-col gap-3 mb-3">
+          <div>
+            <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Member number</p>
+            <input
+              value={extMemberNo}
+              onChange={(e) => setExtMemberNo(e.target.value)}
+              placeholder="Member number"
+              className="inter"
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, borderRadius: 12, fontSize: 13, background: c.card, outline: "none", color: c.text }}
+            />
+          </div>
+          <div>
+            <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Phone number</p>
+            <input
+              value={extPhone}
+              onChange={(e) => setExtPhone(e.target.value)}
+              placeholder="Phone number"
+              className="inter"
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, borderRadius: 12, fontSize: 13, background: c.card, outline: "none", color: c.text }}
+            />
           </div>
         </div>
       )}
@@ -918,15 +929,14 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const [extAmount, setExtAmount] = useState("");
   const [extStatus, setExtStatus] = useState("idle");
 
-  // Demo shortcut: once Sakonet Boresha is selected, preselect a real
-  // onboarded demo SACCO and its demo guarantor. The presenter only needs
-  // to enter the guarantee amount; the SACCO/member details are already on
-  // the SACCO record and are displayed as read-only.
+  // Once Sakonet Boresha is selected, preselect the guarantor's SACCO so
+  // their member number and phone are pulled straight from the SACCO
+  // record instead of being entered manually.
   useEffect(() => {
     if (!product?.sakonetOnly || extSacco) return;
-    const demoSacco = store.state.saccos.BAR;
-    if (demoSacco?.onboarded && demoSacco.status === "active") setExtSacco(demoSacco);
-  }, [product?.id, extSacco, store.state.saccos.BAR]);
+    const defaultSacco = store.state.saccos.BTY;
+    if (defaultSacco?.onboarded && defaultSacco.status === "active") setExtSacco(defaultSacco);
+  }, [product?.id, extSacco, store.state.saccos.BTY]);
 
   // A toast from an earlier step (e.g. "Sent to Mkulima SACCO for review")
   // shouldn't still be sitting on screen once the borrower has moved on —

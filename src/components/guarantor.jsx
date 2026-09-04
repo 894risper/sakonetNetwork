@@ -344,7 +344,7 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
         <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(8,63,63,0.45)", zIndex: 40 }}>
           <div className="rounded-2xl p-5 mx-5" style={{ background: c.panel, width: 330, boxShadow: "0 20px 50px rgba(0,0,0,0.2)" }}>
             <p className="disp" style={{ fontSize: 18, fontWeight: 700, color: c.ink }}>Confirm with your SACCO PIN</p>
-            <p className="body" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.45, marginTop: 5 }}>Beauty SACCO records your decision before it is sent to Sakonet. Demo PIN: 654321.</p>
+            <p className="body" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.45, marginTop: 5 }}>Beauty SACCO records your decision before it is sent to Sakonet.</p>
             <input autoFocus inputMode="numeric" maxLength={6} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} placeholder="6-digit PIN" className="body w-full rounded-xl mt-4" style={{ padding: "12px", fontSize: 16, letterSpacing: 4, textAlign: "center", border: `1px solid ${pinError ? c.danger : c.border}`, outline: "none" }} />
             {pinError && <p className="body" style={{ fontSize: 11, color: c.danger, marginTop: 5 }}>{pinError}</p>}
             <div className="flex gap-2 mt-4">
