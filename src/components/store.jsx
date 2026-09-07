@@ -621,7 +621,12 @@ export function SakonetProvider({ children }) {
 
   // ---- respondToRequest ----
   // Beauty member -> Beauty SACCO -> SAKONET -> Mkulima SACCO -> Mkulima member.
-  // Every hand-off is represented in the shared state and audit/network trail.
+  // The guarantor's own SACCO staff no longer need to re-confirm a member's
+  // acceptance with a separate approval click — once the member accepts,
+  // the relay to SAKONET, the borrower's SACCO, and the borrower proceeds
+  // automatically. Beauty SACCO and Mkulima SACCO staff can both see the
+  // member's decision land in their consoles in real time; a decline still
+  // needs no extra staff gate either, so both paths now behave the same way.
   const respondToRequest = useCallback((requestId, decision, pin) => {
     const req = state.requests[requestId];
     if (!req || req.stage !== "notified") return { ok: false, error: "This request is not awaiting the member's decision." };
@@ -655,8 +660,7 @@ export function SakonetProvider({ children }) {
     log({ from: member.name, to: guarantorSaccoName, text: `${member.name} ${decisionText} guarantee ${requestId}. Beauty SACCO has recorded the member decision.`, kind: "internal" });
 
     if (!accepted) {
-      // A decline needs no further staff gate — Beauty SACCO simply
-      // relays the member's decline onward, same as before.
+      // A decline relays onward automatically — no separate staff gate.
       setTimeout(() => {
         dispatch({
           type: "REQUEST/STAGE",
@@ -683,52 +687,20 @@ export function SakonetProvider({ children }) {
       return { ok: true };
     }
 
-    // Accepted: stop here. Beauty SACCO staff must review and confirm the
-    // member's acceptance before anything is relayed to SAKONET, Mkulima
-    // SACCO, or the borrower — see reviewSaccoConfirmation below, which
-    // owns steps 2-4 of the relay.
-    dispatch({ type: "REQUEST/STAGE", requestId, stage: "awaiting_sacco_confirmation" });
-    log({ from: member.name, to: guarantorSaccoName, text: `${requestId} — acceptance is awaiting Beauty SACCO staff confirmation before it is relayed to the network.`, kind: "internal" });
-    return { ok: true };
-  }, [state, log, notify]);
+    // Accepted: relay onward automatically — no separate Beauty SACCO
+    // staff confirmation step. Beauty and Mkulima staff both watch this
+    // same relay land in their own consoles (read-only) via the request's
+    // stage field; neither has to click anything to make it progress.
 
-  // ---- reviewSaccoConfirmation ----
-  // The guarantor's own SACCO staff owns this third operational decision:
-  // after their member accepts, staff must confirm that acceptance before
-  // it is relayed to SAKONET, the borrower's SACCO, and the borrower.
-  // Approving continues the same relay Mkulima staff and the borrower see;
-  // rejecting simply reports that the guarantorship failed, with no
-  // further detail exposed outward, and frees up the capacity that was
-  // reserved when the member accepted.
-  const reviewSaccoConfirmation = useCallback((requestId, decision) => {
-    const req = state.requests[requestId];
-    if (!req || req.stage !== "awaiting_sacco_confirmation") return { ok: false, error: "Request is not awaiting SACCO confirmation." };
-
-    const member = findMember(state, req.guarantorSacco, req.guarantorMemberNo);
-    const borrowerSaccoName = state.saccos[req.borrowerSacco]?.name || req.borrowerSacco;
-    const guarantorSaccoName = state.saccos[req.guarantorSacco]?.name || req.guarantorSacco;
-    const guarantorName = member?.name || req.guarantorName;
-
-    if (decision === "reject") {
-      dispatch({ type: "MEMBER/CAPACITY_RELEASE", saccoCode: req.guarantorSacco, memberNo: req.guarantorMemberNo, amount: req.amount });
-      dispatch({ type: "LOAN/GUARANTOR_STATUS", loanId: req.loanId, memberNo: req.guarantorMemberNo, status: "rejected" });
-      log({ from: guarantorSaccoName, to: "SAKONET Network", text: `${requestId} — Beauty SACCO staff did not confirm ${guarantorName}'s acceptance. Guarantorship failed.`, kind: "network" });
-      log({ from: "SAKONET Network", to: borrowerSaccoName, text: `${requestId} — Beauty SACCO's final rejection delivered to ${borrowerSaccoName}.`, kind: "network" });
-      log({ from: borrowerSaccoName, to: req.borrowerName || "Borrower", text: `${requestId} — guarantorship failed.`, kind: "internal" });
-      notify(req.borrowerMemberNo, { type: "sacco", title: "Guarantorship failed", body: `The guarantorship for ${requestId} failed.` });
-      notify(req.guarantorMemberNo, { type: "sacco", title: "Guarantorship failed", body: `The guarantorship for ${requestId} failed.` });
-      dispatch({ type: "REQUEST/STAGE", requestId, stage: "rejected", extra: { declineReason: "Guarantorship failed.", declinedBy: guarantorSaccoName, declinedAt: now(), completedAt: now() } });
-      return { ok: true };
-    }
-
-    // 2. Beauty SACCO -> SAKONET Network. This is the official SACCO relay.
+    // 2. Beauty SACCO -> SAKONET Network. This is the official SACCO relay,
+    // sent automatically the moment the member accepts.
     dispatch({
       type: "REQUEST/STAGE",
       requestId,
       stage: "sacco_confirmed_accepted",
       extra: { saccoConfirmation: "accepted", saccoConfirmedAt: now() },
     });
-    log({ from: guarantorSaccoName, to: "SAKONET Network", text: `${guarantorSaccoName} sent official confirmation: ${guarantorName} accepted ${requestId} for KES ${req.amount.toLocaleString("en-KE")}.`, kind: "network" });
+    log({ from: guarantorSaccoName, to: "SAKONET Network", text: `${guarantorSaccoName} sent official confirmation: ${member.name} accepted ${requestId} for KES ${req.amount.toLocaleString("en-KE")}.`, kind: "network" });
 
     // 3. SAKONET Network -> Mkulima SACCO. The network console can see
     // this hand-off and its status, but does not make the SACCO decision.
@@ -755,7 +727,7 @@ export function SakonetProvider({ children }) {
 
         // LOAN/CHECK_COVERAGE re-derives coverage from the reducer's own
         // current state when it actually runs, not from `state` captured
-        // when reviewSaccoConfirmation was first called — that snapshot is
+        // when respondToRequest was first called — that snapshot is
         // stale by now (two setTimeouts and several dispatches deep), so
         // computing coverage from it here was the reason loans could get
         // stuck and never reach "approved" for disbursement.
@@ -921,7 +893,6 @@ export function SakonetProvider({ children }) {
     reviewGuarantorRequest,
     reviewBeautyIncomingRequest,
     respondToRequest,
-    reviewSaccoConfirmation,
     disburseLoan,
     simulateDefault,
     settleClaim,
@@ -929,7 +900,7 @@ export function SakonetProvider({ children }) {
     notify,
     markRead,
     log,
-  }), [state, createSacco, authenticateSaccoApi, createLoan, addLocalGuarantor, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, reviewSaccoConfirmation, disburseLoan, simulateDefault, settleClaim, simulateRepaid, notify, markRead, log]);
+  }), [state, createSacco, authenticateSaccoApi, createLoan, addLocalGuarantor, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, disburseLoan, simulateDefault, settleClaim, simulateRepaid, notify, markRead, log]);
 
   return <SakonetContext.Provider value={value}>{children}</SakonetContext.Provider>;
 }

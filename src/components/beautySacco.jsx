@@ -471,12 +471,11 @@ function LoanDetailView({ loan, onBack }) {
 
 function GuaranteeRequestsView() {
   const store = useSakonet();
-  const { state, reviewBeautyIncomingRequest, reviewSaccoConfirmation, settleClaim } = store;
+  const { state, reviewBeautyIncomingRequest, settleClaim } = store;
   const [reasonById, setReasonById] = useState({});
   const [errorById, setErrorById] = useState({});
   const requests = Object.values(state.requests).filter((r) => r.guarantorSacco === "BTY");
   const staffReviewPending = requests.filter((r) => r.stage === "beauty_sacco_review");
-  const confirmationsPending = requests.filter((r) => r.stage === "awaiting_sacco_confirmation");
   const decidedRequests = requests.filter((r) =>
     r.stage === "rejected" || r.stage === "declined" ||
     r.stage.startsWith("sacco_confirm") || r.stage === "sacco_received_confirmation" ||
@@ -490,12 +489,6 @@ function GuaranteeRequestsView() {
     else setErrorById((x) => ({ ...x, [request.id]: "" }));
   };
 
-  const decideConfirmation = (request, decision) => {
-    const result = reviewSaccoConfirmation(request.id, decision);
-    if (!result.ok) setErrorById((x) => ({ ...x, [request.id]: result.error }));
-    else setErrorById((x) => ({ ...x, [request.id]: "" }));
-  };
-
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: c.tealSoft, border: `1px solid ${c.sakonetLine}` }}>
@@ -503,7 +496,7 @@ function GuaranteeRequestsView() {
         <div>
           <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.teal }}>Beauty SACCO staff decision queue</p>
           <p className="body" style={{ fontSize: 12, color: c.muted, lineHeight: 1.5, marginTop: 3 }}>
-            Beauty SACCO receives the request after Mkulima staff approve it. First, Beauty staff verify the named member and capacity. After the member accepts, the request returns here for a second staff confirmation before anything is relayed back to Mkulima.
+            Beauty SACCO receives the request after Mkulima staff approve it. First, Beauty staff verify the named member and capacity. Once the member accepts, the acceptance relays to SAKONET and Mkulima SACCO automatically — no second staff confirmation needed.
           </p>
         </div>
       </div>
@@ -553,46 +546,13 @@ function GuaranteeRequestsView() {
         </div>
       )}
 
-      {confirmationsPending.length > 0 && (
-        <div>
-          <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink, marginBottom: 10 }}>Member acceptances awaiting your confirmation</p>
-          <div className="flex flex-col gap-3">
-            {confirmationsPending.map((request) => {
-              const borrowerSacco = state.saccos[request.borrowerSacco]?.name || request.borrowerSacco;
-              return (
-                <div key={request.id} className="rounded-2xl p-5" style={{ background: c.panel, border: `1px solid ${c.gold}` }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="mono" style={{ fontSize: 10.5, color: c.muted }}>{request.id}</p>
-                      <h3 className="disp" style={{ fontSize: 17, fontWeight: 700, color: c.ink }}>{request.guarantorName} accepted · {kes(request.amount)}</h3>
-                      <p className="body" style={{ fontSize: 12, color: c.muted, marginTop: 3 }}>For {borrowerSacco} · {request.product || "Loan"} · {request.loanId}</p>
-                    </div>
-                    <StatusChip status="sacco_confirming" />
-                  </div>
-                  <div className="rounded-xl p-3 mt-4" style={{ background: c.goldSoft }}>
-                    <p className="body" style={{ fontSize: 11.5, color: "#7A5C16" }}>
-                      {request.guarantorName} has accepted this guarantee. Confirm to relay the acceptance to SAKONET and {borrowerSacco}, or reject to stop it here — the borrower and {request.guarantorName} will simply be told the guarantorship failed.
-                    </p>
-                  </div>
-                  {errorById[request.id] && <p className="body mt-2" style={{ fontSize: 11.5, color: c.danger }}>{errorById[request.id]}</p>}
-                  <div className="flex gap-2 mt-3">
-                    <button onClick={() => decideConfirmation(request, "approve")} className="rounded-xl body flex items-center gap-2" style={{ padding: "10px 14px", background: c.success, color: "#fff", fontSize: 12.5, fontWeight: 700 }}><CircleCheck size={15} /> Confirm acceptance</button>
-                    <button onClick={() => decideConfirmation(request, "reject")} className="rounded-xl body flex items-center gap-2" style={{ padding: "10px 14px", background: c.danger, color: "#fff", fontSize: 12.5, fontWeight: 700 }}><X size={15} /> Reject</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {staffReviewPending.length === 0 && confirmationsPending.length === 0 && decidedRequests.length === 0 && (
-        <div className="rounded-2xl p-8 text-center" style={{ background: c.panel, border: `1px solid ${c.border}` }}><p className="body" style={{ fontSize: 13, color: c.muted }}>Nothing to review yet. Requests only appear here once a member has personally accepted.</p></div>
+      {staffReviewPending.length === 0 && decidedRequests.length === 0 && (
+        <div className="rounded-2xl p-8 text-center" style={{ background: c.panel, border: `1px solid ${c.border}` }}><p className="body" style={{ fontSize: 13, color: c.muted }}>Nothing to review yet. Requests appear here once Mkulima SACCO routes one to a Beauty SACCO member.</p></div>
       )}
 
       {decidedRequests.length > 0 && (
         <div>
-          <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink, marginBottom: 10 }}>History</p>
+          <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink, marginBottom: 10 }}>Member decisions</p>
           <div className="flex flex-col gap-3">
             {decidedRequests.map((request) => {
               const borrowerSacco = state.saccos[request.borrowerSacco]?.name || request.borrowerSacco;
@@ -606,6 +566,11 @@ function GuaranteeRequestsView() {
                     </div>
                     <StatusChip status={getRequestStatus(request.stage)} />
                   </div>
+                  {getRequestStatus(request.stage) === "accepted" && (
+                    <p className="body mt-3" style={{ fontSize: 11.5, color: c.success }}>
+                      {request.guarantorName} accepted — relayed to SAKONET and {borrowerSacco} automatically.
+                    </p>
+                  )}
                   {request.declineReason && (
                     <div className="rounded-xl p-3 mt-4" style={{ background: c.dangerSoft }}>
                       <p className="body" style={{ fontSize: 11, color: c.danger, fontWeight: 700 }}>Declined by {request.declinedBy || "SACCO staff"}</p>
