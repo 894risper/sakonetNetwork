@@ -60,6 +60,9 @@ const fontStack = `
     border-radius: 0;
     border: none;
     box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   @media (min-width: 640px) {
     .phone-shell {
@@ -107,13 +110,13 @@ function deriveStatus(stage) {
 // ---------- Small building blocks ----------
 function TopBar({ title, onBack }) {
   return (
-    <div className="flex items-center gap-2 px-5 pt-5 pb-3" style={{ background: c.paper }}>
+    <div className="flex items-center gap-2 px-5 pt-5 pb-3 flex-shrink-0" style={{ background: c.paper }}>
       {onBack && (
-        <button onClick={onBack} className="p-1 -ml-1 rounded-full" style={{ color: c.ink }}>
+        <button onClick={onBack} className="p-1 -ml-1 rounded-full flex-shrink-0" style={{ color: c.ink }}>
           <ChevronLeft size={22} />
         </button>
       )}
-      <h1 className="disp" style={{ fontSize: 19, fontWeight: 600, color: c.ink }}>{title}</h1>
+      <h1 className="disp" style={{ fontSize: 19, fontWeight: 600, color: c.ink, minWidth: 0 }}>{title}</h1>
     </div>
   );
 }
@@ -127,7 +130,7 @@ function Pill({ children, tone = "neutral" }) {
   };
   const t = tones[tone];
   return (
-    <span className="body" style={{ background: t.bg, color: t.fg, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20 }}>
+    <span className="body" style={{ background: t.bg, color: t.fg, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>
       {children}
     </span>
   );
@@ -137,7 +140,7 @@ function SakonetBadge({ label = "Sakonet" }) {
   return (
     <span
       className="body flex items-center gap-1"
-      style={{ background: c.sakonetBg, color: c.sakonet, fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${c.sakonetBorder}` }}
+      style={{ background: c.sakonetBg, color: c.sakonet, fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 20, border: `1px solid ${c.sakonetBorder}`, whiteSpace: "nowrap", flexShrink: 0 }}
     >
       <Globe2 size={10.5} /> {label}
     </span>
@@ -152,7 +155,7 @@ function NavBar({ tab, setTab, unreadCount }) {
     { id: "notifications", label: "Alerts", icon: Bell },
   ];
   return (
-    <div className="flex justify-around items-center px-2 pt-2" style={{ borderTop: `1px solid ${c.border}`, background: c.panel, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <div className="flex justify-around items-center px-2 pt-2 flex-shrink-0" style={{ borderTop: `1px solid ${c.border}`, background: c.panel, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {items.map((it) => {
         const active = tab === it.id;
         const Icon = it.icon;
@@ -180,13 +183,13 @@ function NavBar({ tab, setTab, unreadCount }) {
 // ---------- HOME ----------
 function HomeScreen({ member, goGuarantor, goNotifications, hasPending }) {
   return (
-    <div className="px-5 pt-6 pb-6 overflow-y-auto" style={{ background: c.paper, flex: 1 }}>
+    <div className="px-5 pt-6 pb-6 overflow-y-auto" style={{ background: c.paper, flex: 1, minHeight: 0 }}>
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="body" style={{ fontSize: 13, color: c.muted }}>Good afternoon,</p>
           <p className="disp" style={{ fontSize: 18, fontWeight: 600, color: c.ink }}>{member.name.split(" ")[0]}</p>
         </div>
-        <button onClick={goNotifications} className="p-2 rounded-full" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
+        <button onClick={goNotifications} className="p-2 rounded-full flex-shrink-0" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
           <Bell size={18} color={c.ink} />
         </button>
       </div>
@@ -214,23 +217,23 @@ function HomeScreen({ member, goGuarantor, goNotifications, hasPending }) {
 
       {hasPending && (
         <button onClick={goGuarantor} className="w-full text-left rounded-2xl p-4 mb-4 flex items-center justify-between" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}`, cursor: "pointer" }}>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center rounded-full" style={{ width: 36, height: 36, background: "#fff" }}>
+          <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
+            <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 36, height: 36, background: "#fff" }}>
               <Globe2 size={16} color={c.sakonet} />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <p className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink }}>Guarantee request via Sakonet</p>
               <p className="body" style={{ fontSize: 11, color: c.muted }}>Needs your response</p>
             </div>
           </div>
-          <ChevronRight size={17} color={c.ink} />
+          <ChevronRight size={17} color={c.ink} style={{ flexShrink: 0 }} />
         </button>
       )}
 
       <h2 className="disp" style={{ fontSize: 14, fontWeight: 600, color: c.ink, marginBottom: 10 }}>Guarantees you hold</h2>
       <div className="rounded-2xl p-4" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
-        <div className="flex justify-between items-start mb-2">
-          <div>
+        <div className="flex justify-between items-start mb-2" style={{ gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
             <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink }}>{activeGuarantee.name}</p>
             <p className="body" style={{ fontSize: 11.5, color: c.muted }}>{activeGuarantee.product} · your exposure {fmt(activeGuarantee.exposure)}</p>
           </div>
@@ -256,22 +259,22 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
   const isDone = isFinal || isProcessing;
 
   return (
-    <div className="flex-1 flex flex-col" style={{ background: c.paper }}>
+    <div className="flex-1 flex flex-col" style={{ background: c.paper, minHeight: 0 }}>
       <TopBar title="Guarantee request" onBack={onBack} />
-      <div className="px-5 flex-1 overflow-y-auto pb-3">
+      <div className="px-5 flex-1 overflow-y-auto pb-3" style={{ minHeight: 0 }}>
         <div className="rounded-2xl p-3 mb-4 flex gap-2" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}>
           <Globe2 size={14} color={c.sakonet} style={{ flexShrink: 0, marginTop: 1 }} />
-          <p className="body" style={{ fontSize: 11.5, color: c.sakonet, lineHeight: 1.5 }}>
+          <p className="body" style={{ fontSize: 11.5, color: c.sakonet, lineHeight: 1.5, minWidth: 0 }}>
             This request was sent by Beauty SACCO after Beauty verified your membership and available guarantee capacity. Your decision is recorded by Beauty SACCO first, then Beauty sends the official confirmation through the SAKONET Network.
           </p>
         </div>
 
         <div className="rounded-2xl p-5 mb-4" style={{ background: c.tealDeep }}>
-          <div className="flex items-center justify-between mb-1">
-            <p className="body" style={{ fontSize: 12, color: c.tealSoft }}>{request.product} · {request.loanId}</p>
+          <div className="flex items-center justify-between mb-1" style={{ gap: 8 }}>
+            <p className="body" style={{ fontSize: 12, color: c.tealSoft, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{request.product} · {request.loanId}</p>
             <SakonetBadge label="SAKONET Network" />
           </div>
-          <p className="disp" style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginTop: 4 }}>{request.borrower}</p>
+          <p className="disp" style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginTop: 4, wordBreak: "break-word" }}>{request.borrower}</p>
           <p className="body" style={{ fontSize: 12, color: c.tealSoft, marginTop: 2 }}>Loan amount {fmt(request.loanAmount)} · {request.term}</p>
         </div>
 
@@ -281,9 +284,9 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
             ["Your guarantee", fmt(request.amount)],
             ["Your available capacity", fmt(member.capacity)],
           ].map(([k, v]) => (
-            <div key={k} className="flex justify-between py-2" style={{ borderBottom: `1px solid ${c.border}` }}>
-              <span className="body" style={{ fontSize: 12.5, color: c.muted }}>{k}</span>
-              <span className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink }}>{v}</span>
+            <div key={k} className="flex justify-between py-2" style={{ borderBottom: `1px solid ${c.border}`, gap: 8 }}>
+              <span className="body" style={{ fontSize: 12.5, color: c.muted, flexShrink: 0 }}>{k}</span>
+              <span className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink, textAlign: "right", minWidth: 0, wordBreak: "break-word" }}>{v}</span>
             </div>
           ))}
         </div>
@@ -293,8 +296,8 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
             <p className="body" style={{ fontSize: 11.5, fontWeight: 700, color: c.ink, marginBottom: 8 }}>Other guarantors on this loan</p>
             <div className="flex flex-col gap-2 mb-4">
               {request.otherGuarantors.map((g) => (
-                <div key={g.name} className="rounded-xl p-3 flex items-center justify-between" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
-                  <div>
+                <div key={g.name} className="rounded-xl p-3 flex items-center justify-between" style={{ background: c.panel, border: `1px solid ${c.border}`, gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
                     <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: c.ink }}>{g.name}</p>
                     <p className="body" style={{ fontSize: 11, color: c.muted }}>{g.sacco} · {fmt(g.amount)}</p>
                   </div>
@@ -310,9 +313,9 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
             <p className="body" style={{ fontSize: 11.5, fontWeight: 700, color: c.sakonet, marginBottom: 8 }}>Sending your response</p>
             <div className="flex flex-col gap-2">
               {relayLog.map((line) => (
-                <div key={line.text} className="flex items-center gap-2">
-                  {line.done ? <CheckCircle2 size={13} color={c.sakonet} /> : <Loader2 size={13} color={c.sakonet} className="animate-spin" />}
-                  <span className="body" style={{ fontSize: 11.5, color: c.ink }}>{line.text}</span>
+                <div key={line.text} className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                  {line.done ? <CheckCircle2 size={13} color={c.sakonet} style={{ flexShrink: 0 }} /> : <Loader2 size={13} color={c.sakonet} className="animate-spin" style={{ flexShrink: 0 }} />}
+                  <span className="body" style={{ fontSize: 11.5, color: c.ink, minWidth: 0, wordBreak: "break-word" }}>{line.text}</span>
                 </div>
               ))}
             </div>
@@ -320,9 +323,9 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
         )}
 
         {isProcessing && (
-          <div className="rounded-2xl p-4 flex items-center gap-2" style={{ background: c.sakonetBg }}>
-            <Loader2 size={16} color={c.sakonet} className="animate-spin" />
-            <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: c.sakonet }}>
+          <div className="rounded-2xl p-4 flex items-start gap-2" style={{ background: c.sakonetBg }}>
+            <Loader2 size={16} color={c.sakonet} className="animate-spin flex-shrink-0" style={{ marginTop: 1 }} />
+            <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: c.sakonet, minWidth: 0, lineHeight: 1.45 }}>
               {request.memberDecision === "declined"
                 ? "You declined this request. Beauty SACCO is recording your decision and relaying it through the SAKONET Network."
                 : "You accepted this guarantee. Beauty SACCO staff are confirming your decision before it's relayed through the SAKONET Network."}
@@ -331,9 +334,9 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
         )}
 
         {isFinal && (
-          <div className="rounded-2xl p-4 flex items-center gap-2" style={{ background: request.status === "accepted" ? c.successSoft : c.dangerSoft }}>
-            {request.status === "accepted" ? <CheckCircle2 size={16} color={c.success} /> : <X size={16} color={c.danger} />}
-            <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: request.status === "accepted" ? c.success : c.danger }}>
+          <div className="rounded-2xl p-4 flex items-start gap-2" style={{ background: request.status === "accepted" ? c.successSoft : c.dangerSoft }}>
+            {request.status === "accepted" ? <CheckCircle2 size={16} color={c.success} style={{ flexShrink: 0, marginTop: 1 }} /> : <X size={16} color={c.danger} style={{ flexShrink: 0, marginTop: 1 }} />}
+            <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: request.status === "accepted" ? c.success : c.danger, minWidth: 0, lineHeight: 1.45 }}>
               {request.status === "accepted"
                 ? `Your acceptance was confirmed by Beauty SACCO. Beauty SACCO has sent the confirmation through the SAKONET Network.`
                 : request.memberDecision === "declined"
@@ -345,11 +348,11 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
       </div>
 
       {showPin && !isDone && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(140,90,136,0.45)", zIndex: 40 }}>
-          <div className="rounded-2xl p-5 mx-5" style={{ background: c.panel, width: 330, boxShadow: "0 20px 50px rgba(0,0,0,0.2)" }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(140,90,136,0.45)", zIndex: 40, padding: 16 }}>
+          <div className="rounded-2xl p-5" style={{ background: c.panel, width: "100%", maxWidth: 330, boxShadow: "0 20px 50px rgba(0,0,0,0.2)" }}>
             <p className="disp" style={{ fontSize: 18, fontWeight: 700, color: c.ink }}>Confirm with your SACCO PIN</p>
             <p className="body" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.45, marginTop: 5 }}>Beauty SACCO records your decision before it is sent to Sakonet. Demo PIN: 654321.</p>
-            <input autoFocus inputMode="numeric" maxLength={6} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} placeholder="6-digit PIN" className="body w-full rounded-xl mt-4" style={{ padding: "12px", fontSize: 16, letterSpacing: 4, textAlign: "center", border: `1px solid ${pinError ? c.danger : c.border}`, outline: "none" }} />
+            <input autoFocus inputMode="numeric" maxLength={6} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} placeholder="6-digit PIN" className="body w-full rounded-xl mt-4" style={{ padding: "12px", fontSize: 16, letterSpacing: 4, textAlign: "center", border: `1px solid ${pinError ? c.danger : c.border}`, outline: "none", boxSizing: "border-box" }} />
             {pinError && <p className="body" style={{ fontSize: 11, color: c.danger, marginTop: 5 }}>{pinError}</p>}
             <div className="flex gap-2 mt-4">
               <button onClick={() => setShowPin(false)} className="flex-1 rounded-xl body" style={{ padding: "10px 0", fontSize: 12.5, fontWeight: 700, background: c.paper, color: c.ink }}>Cancel</button>
@@ -361,13 +364,13 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
 
       {/* ACCEPT/DECLINE BUTTONS - Always visible when not done */}
       {!isDone && (
-        <div className="px-5 pb-6 pt-3 flex gap-2" style={{ borderTop: `1px solid ${c.border}`, background: c.paper }}>
+        <div className="px-5 pb-6 pt-3 flex gap-2 flex-shrink-0" style={{ borderTop: `1px solid ${c.border}`, background: c.paper, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
           <button
             disabled={isDeciding}
             onClick={() => { setPendingDecision("rejected"); setPin(""); setPinError(""); setShowPin(true); }}
             className="flex-1 rounded-2xl body"
             style={{ 
-              padding: "13px 0", 
+              padding: "13px 8px", 
               fontSize: 14, 
               fontWeight: 700, 
               background: c.panel, 
@@ -375,6 +378,7 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
               border: `1px solid ${c.danger}`, 
               opacity: isDeciding ? 0.5 : 1,
               cursor: isDeciding ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
             }}
           >
             Decline
@@ -384,13 +388,14 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
             onClick={() => { setPendingDecision("accepted"); setPin(""); setPinError(""); setShowPin(true); }}
             className="flex-1 rounded-2xl body flex items-center justify-center gap-2"
             style={{ 
-              padding: "13px 0", 
+              padding: "13px 8px", 
               fontSize: 14, 
               fontWeight: 700, 
               background: c.teal, 
               color: "#fff", 
               opacity: isDeciding ? 0.7 : 1,
               cursor: isDeciding ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
             }}
           >
             {isDeciding ? <><Loader2 size={14} className="animate-spin" /> Sending…</> : "Accept"}
@@ -428,7 +433,7 @@ function GuarantorScreen({ store, member, requestView }) {
 
   if (!requestView) {
     return (
-      <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1 }}>
+      <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1, minHeight: 0 }}>
         <h2 className="disp" style={{ fontSize: 14, fontWeight: 600, color: c.ink, marginBottom: 10 }}>Guarantee requests from Beauty SACCO</h2>
         <div className="rounded-2xl p-5 text-center mb-6" style={{ background: c.tealSoft }}>
           <p className="body" style={{ fontSize: 12.5, color: c.ink }}>Nothing to review yet — send a request from Mkulima SACCO's app to see it appear here.</p>
@@ -455,7 +460,7 @@ function GuarantorScreen({ store, member, requestView }) {
   const isPending = requestView.status === "awaiting_response" && respondStatus !== "done";
 
   return (
-    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1 }}>
+    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1, minHeight: 0 }}>
       <h2 className="disp" style={{ fontSize: 14, fontWeight: 600, color: c.ink, marginBottom: 10 }}>
         Pending requests {isPending && <span style={{ color: c.gold }}>(1)</span>}
       </h2>
@@ -480,12 +485,12 @@ function GuarantorScreen({ store, member, requestView }) {
             e.currentTarget.style.boxShadow = "0 2px 8px rgba(47,93,138,0.1)";
           }}
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <p className="body" style={{ fontSize: 13.5, fontWeight: 700, color: c.ink }}>{requestView.borrower}</p>
+          <div className="flex items-center justify-between mb-1" style={{ gap: 8 }}>
+            <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+              <p className="body" style={{ fontSize: 13.5, fontWeight: 700, color: c.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{requestView.borrower}</p>
               <SakonetBadge label={requestView.borrowerSacco} />
             </div>
-            <ChevronRight size={16} color={c.sakonet} />
+            <ChevronRight size={16} color={c.sakonet} style={{ flexShrink: 0 }} />
           </div>
           <p className="body" style={{ fontSize: 11.5, color: c.muted }}>
             {requestView.product} · guarantee {fmt(requestView.amount)}
@@ -519,8 +524,8 @@ function GuaranteesHeld() {
     <>
       <h2 className="disp" style={{ fontSize: 14, fontWeight: 600, color: c.ink, marginBottom: 10 }}>Guarantees you hold</h2>
       <div className="rounded-2xl p-4" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
-        <div className="flex justify-between items-start mb-2">
-          <div>
+        <div className="flex justify-between items-start mb-2" style={{ gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
             <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink }}>{activeGuarantee.name}</p>
             <p className="body" style={{ fontSize: 11.5, color: c.muted }}>{activeGuarantee.product} · your exposure {fmt(activeGuarantee.exposure)}</p>
           </div>
@@ -543,12 +548,12 @@ function SavingsScreen({ member }) {
     ["Currently committed", fmt(activeGuarantee.exposure)],
   ];
   return (
-    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1 }}>
+    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1, minHeight: 0 }}>
       <div className="rounded-2xl p-4" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
         {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between py-2.5" style={{ borderBottom: `1px solid ${c.border}` }}>
+          <div key={k} className="flex justify-between py-2.5" style={{ borderBottom: `1px solid ${c.border}`, gap: 8 }}>
             <span className="body" style={{ fontSize: 12.5, color: c.muted }}>{k}</span>
-            <span className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink }}>{v}</span>
+            <span className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink, textAlign: "right" }}>{v}</span>
           </div>
         ))}
       </div>
@@ -564,7 +569,7 @@ function SavingsScreen({ member }) {
 function NotificationsScreen({ store, member }) {
   const items = store.state.notifications[member.memberNo] || [];
   return (
-    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1 }}>
+    <div className="px-5 pb-4 overflow-y-auto" style={{ background: c.paper, flex: 1, minHeight: 0 }}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="disp" style={{ fontSize: 14, fontWeight: 600, color: c.ink }}>Recent</h2>
         <button onClick={() => store.markRead(member.memberNo)} className="body" style={{ fontSize: 12, color: c.teal, fontWeight: 700 }}>
@@ -578,10 +583,10 @@ function NotificationsScreen({ store, member }) {
             <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 34, height: 34, background: "#fff" }}>
               {notifIcon(n.type)}
             </div>
-            <div className="flex-1">
-              <div className="flex justify-between items-start">
-                <p className="body" style={{ fontSize: 13, fontWeight: n.unread ? 700 : 600, color: c.ink }}>{n.title}</p>
-                {n.unread && <span style={{ width: 7, height: 7, borderRadius: 7, background: c.coral, flexShrink: 0, marginLeft: 6, marginTop: 4 }} />}
+            <div className="flex-1" style={{ minWidth: 0 }}>
+              <div className="flex justify-between items-start" style={{ gap: 8 }}>
+                <p className="body" style={{ fontSize: 13, fontWeight: n.unread ? 700 : 600, color: c.ink, minWidth: 0 }}>{n.title}</p>
+                {n.unread && <span style={{ width: 7, height: 7, borderRadius: 7, background: c.coral, flexShrink: 0, marginTop: 4 }} />}
               </div>
               <p className="body" style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>{n.body}</p>
               <p className="body" style={{ fontSize: 10.5, color: c.muted, marginTop: 6 }}>{n.time}</p>
@@ -635,9 +640,9 @@ export default function BeautySaccoMemberApp() {
   return (
     <div className="flex items-center justify-center w-full" style={{ minHeight: "100dvh", background: "#DCE0D5", fontFamily: "Manrope, sans-serif" }}>
       <style>{fontStack}</style>
-      <div className="phone-shell relative flex flex-col overflow-hidden" style={{ background: c.paper }}>
+      <div className="phone-shell relative" style={{ background: c.paper }}>
 
-        <div className="flex items-center justify-between px-6 pt-3 pb-1" style={{ background: c.paper }}>
+        <div className="flex items-center justify-between px-6 pt-3 pb-1 flex-shrink-0" style={{ background: c.paper }}>
           <span className="disp" style={{ fontSize: 13, fontWeight: 700, color: c.ink }}>9:41</span>
           <Smartphone size={13} color={c.ink} />
         </div>
