@@ -541,7 +541,7 @@ function RequestsView() {
               <div className="rounded-xl p-3" style={{ background: c.paper }}>
                 <p className="body" style={{ fontSize: 11, color: c.muted }}>Borrower</p>
                 <p className="body" style={{ fontSize: 13, fontWeight: 700, color: c.ink }}>{request.borrowerName || "Member"} · {borrowerSacco}</p>
-                <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{loan?.product || "Loan"} · {request.loanId} · {kes(request.loanAmount || loan?.amount || 0)}</p>
+                <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{loan?.product || "Loan"} · {request.loanId}</p>
               </div>
               <div className="rounded-xl p-3" style={{ background: c.paper }}>
                 <p className="body" style={{ fontSize: 11, color: c.muted }}>Guarantor</p>
@@ -561,9 +561,15 @@ function RequestsView() {
 /* ================= LOANS MANAGEMENT ================= */
 function LoansManagementView() {
   const store = useSakonet();
-  const { state } = store;
+  const { state, simulateDefault, simulateRepaid, settleClaim } = store;
   const [openId, setOpenId] = useState(null);
-  const loans = Object.values(state.loans).sort((a, b) => String(b.id).localeCompare(String(a.id)));
+
+  // SAKONET only cares about loans that carry at least one external
+  // (mode: "sakonet") guarantor — a purely local loan never touches
+  // the network and has no business showing up in this console.
+  const loans = Object.values(state.loans)
+    .filter((loan) => (loan.guarantors || []).some((g) => g.mode === "sakonet"))
+    .sort((a, b) => String(b.id).localeCompare(String(a.id)));
 
   const stageLabel = {
     guarantors: "Guarantee cover",
@@ -580,19 +586,26 @@ function LoansManagementView() {
         <p className="body" style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .7, color: "#AEC3DA" }}>NETWORK MANAGEMENT SYSTEM</p>
         <h1 className="disp" style={{ fontSize: 25, fontWeight: 700, marginTop: 5 }}>Loan lifecycle control</h1>
         <p className="body" style={{ fontSize: 12, color: "#D8E3EF", lineHeight: 1.5, marginTop: 4 }}>
-          Network-wide visibility from external loan application, SACCO review and guarantor acceptance through disbursement, repayment, default and guarantee settlement. Disbursement, repayment and default are actioned by the borrower's own SACCO — not from here.
+          Network-wide visibility from external loan application, SACCO review and guarantor acceptance through disbursement, repayment, default and guarantee settlement. Repayment and default can also be simulated directly here, the same as from the borrower's own SACCO staff dashboard — committed float is released back to the guarantor SACCO automatically on full repayment, and claimed on default.
         </p>
       </div>
 
-      {loans.length === 0 && <div className="rounded-2xl p-8 text-center" style={{ background: c.panel, border: `1px solid ${c.line}` }}><p className="body" style={{ fontSize: 13, color: c.muted }}>No loans have entered the network yet.</p></div>}
+      {loans.length === 0 && <div className="rounded-2xl p-8 text-center" style={{ background: c.panel, border: `1px solid ${c.line}` }}><p className="body" style={{ fontSize: 13, color: c.muted }}>No loans with cross-SACCO guarantees have entered the network yet.</p></div>}
 
       {loans.map((loan) => {
         const borrowerSacco = state.saccos[loan.borrowerSacco]?.name || loan.borrowerSacco;
-        const guarantors = loan.guarantors || [];
+        const externalGuarantors = (loan.guarantors || []).filter((g) => g.mode === "sakonet");
+        // The amount SAKONET actually cares about: the total being
+        // guaranteed externally, not the loan's full principal (which
+        // is the borrower SACCO's own business).
+        const externalGuaranteeAmount = externalGuarantors.reduce((sum, g) => sum + Number(g.amount || 0), 0);
         const loanRequests = Object.values(state.requests).filter((r) => r.loanId === loan.id);
         const guarantees = Object.values(state.guarantees).filter((g) => g.loanId === loan.id);
         const claims = Object.values(state.claims).filter((cl) => guarantees.some((g) => g.id === cl.guaranteeId));
+        const pendingClaims = claims.filter((cl) => cl.status === "pending");
         const open = openId === loan.id;
+        const isDisbursed = loan.stage === "disbursed";
+        const canSimulate = isDisbursed && loan.repayment !== "arrears" && loan.repayment !== "repaid";
 
         return (
           <div key={loan.id} className="rounded-2xl overflow-hidden" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
@@ -601,7 +614,7 @@ function LoansManagementView() {
                 <div>
                   <p className="mono" style={{ fontSize: 10.5, color: c.muted }}>{loan.id}</p>
                   <h2 className="disp" style={{ fontSize: 17, fontWeight: 700, color: c.ink, marginTop: 2 }}>{loan.borrowerMemberNo} · {loan.product || "Loan"}</h2>
-                  <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{borrowerSacco} · {kes(loan.amount)} · {loan.term || "—"} months</p>
+                  <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{borrowerSacco} · {kes(externalGuaranteeAmount)} guaranteed · {loan.term || "—"} months</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Pill tone={loan.repayment === "arrears" ? "danger" : loan.repayment === "repaid" ? "active" : loan.stage === "disbursed" ? "active" : "pending"}>{stageLabel[loan.stage] || loan.stage}</Pill>
@@ -613,8 +626,8 @@ function LoansManagementView() {
             {open && (
               <div className="px-5 pb-5">
                 <div className="grid grid-cols-4 gap-3">
-                  <KpiCard label="Loan amount" value={kes(loan.amount)} icon={Landmark} />
-                  <KpiCard label="Guarantees" value={guarantors.length} icon={ShieldCheck} />
+                  <KpiCard label="Guaranteed externally" value={kes(externalGuaranteeAmount)} icon={Landmark} />
+                  <KpiCard label="Guarantees" value={externalGuarantors.length} icon={ShieldCheck} />
                   <KpiCard label="Requests" value={loanRequests.length} icon={GitBranch} />
                   <KpiCard label="Claims" value={claims.length} icon={AlertTriangle} tone={c.danger} />
                 </div>
@@ -623,8 +636,8 @@ function LoansManagementView() {
                   <section className="rounded-xl p-4" style={{ background: c.paper }}>
                     <h3 className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>Guarantee coverage</h3>
                     <div className="flex flex-col gap-2 mt-3">
-                      {guarantors.length === 0 && <p className="body" style={{ fontSize: 11.5, color: c.muted }}>No guarantors recorded.</p>}
-                      {guarantors.map((g) => {
+                      {externalGuarantors.length === 0 && <p className="body" style={{ fontSize: 11.5, color: c.muted }}>No external guarantors recorded.</p>}
+                      {externalGuarantors.map((g) => {
                         const req = loanRequests.find((r) => r.guarantorMemberNo === g.memberNo);
                         return <div key={g.memberNo} className="rounded-lg p-3" style={{ background: c.panel }}>
                           <div className="flex justify-between gap-3"><p className="body" style={{ fontSize: 12, fontWeight: 700 }}>{g.name} · {state.saccos[g.sacco]?.name || g.sacco}</p><Pill tone={["rejected","declined"].includes(g.status) ? "danger" : g.status === "secured" || g.status === "accepted" ? "active" : "pending"}>{g.status}</Pill></div>
@@ -637,7 +650,11 @@ function LoansManagementView() {
 
                   <section className="rounded-xl p-4" style={{ background: c.paper }}>
                     <h3 className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>Lifecycle status</h3>
-                    <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Read-only. Disbursement, repayment, default and claim settlement are performed by the responsible SACCO's own staff dashboard and reported here.</p>
+                    <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>
+                      {isDisbursed
+                        ? "Simulate the loan's outcome below. On full repayment, committed float is released back to each guarantor SACCO. On default, guarantees are claimed against the guarantor SACCO's float."
+                        : "Repayment and default simulation become available once the loan is disbursed."}
+                    </p>
                     <div className="flex flex-col gap-2 mt-3">
                       <div className="flex items-center justify-between rounded-lg p-2.5" style={{ background: c.panel }}>
                         <span className="body" style={{ fontSize: 11.5, color: c.muted }}>Owning SACCO</span>
@@ -653,12 +670,47 @@ function LoansManagementView() {
                           <span className="body" style={{ fontSize: 12, fontWeight: 700, color: loan.repayment === "arrears" ? c.danger : c.success }}>{loan.repayment}</span>
                         </div>
                       )}
-                      {claims.filter((cl) => cl.status === "pending").map((cl) => (
-                        <div key={cl.id} className="flex items-center justify-between rounded-lg p-2.5" style={{ background: c.dangerSoft }}>
-                          <span className="body" style={{ fontSize: 11.5, color: c.danger, fontWeight: 700 }}>{cl.id} — pending settlement</span>
-                          <span className="body" style={{ fontSize: 11, color: c.danger }}>awaiting guarantor SACCO</span>
+
+                      {canSimulate && (
+                        <div className="flex gap-2 mt-1">
+                          <button
+                            onClick={() => simulateDefault(loan.id)}
+                            className="flex-1 rounded-lg body"
+                            style={{ padding: "9px 0", fontSize: 12, fontWeight: 700, background: c.panel, color: c.danger, border: `1px solid ${c.danger}` }}
+                          >
+                            Simulate default
+                          </button>
+                          <button
+                            onClick={() => simulateRepaid(loan.id)}
+                            className="flex-1 rounded-lg body"
+                            style={{ padding: "9px 0", fontSize: 12, fontWeight: 700, background: c.panel, color: c.success, border: `1px solid ${c.success}` }}
+                          >
+                            Simulate full repayment
+                          </button>
                         </div>
-                      ))}
+                      )}
+
+                      {pendingClaims.map((cl) => {
+                        const guarantee = guarantees.find((g) => g.id === cl.guaranteeId);
+                        const guarantorSaccoName = guarantee ? (state.saccos[guarantee.guarantorSacco]?.name || guarantee.guarantorSacco) : "";
+                        return (
+                          <div key={cl.id} className="rounded-lg p-2.5" style={{ background: c.dangerSoft }}>
+                            <div className="flex items-center justify-between">
+                              <span className="body" style={{ fontSize: 11.5, color: c.danger, fontWeight: 700 }}>{cl.id} — pending settlement</span>
+                              <span className="body" style={{ fontSize: 11, color: c.danger }}>{kes(cl.amount)}</span>
+                            </div>
+                            {guarantee && (
+                              <button
+                                onClick={() => settleClaim(guarantee.id)}
+                                className="rounded-lg body mt-2"
+                                style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: 700, background: c.danger, color: "#fff" }}
+                              >
+                                Settle from {guarantorSaccoName}'s float
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 </div>
@@ -815,7 +867,7 @@ function SaccoNetworkAnalysis({ saccoCode }) {
               return (
                 <div key={loan.id} className="rounded-xl p-3 flex items-center justify-between gap-4" style={{ background: c.paper }}>
                   <div>
-                    <p className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink }}>{borrowerName} · {kes(loan.amount)}</p>
+                    <p className="body" style={{ fontSize: 12.5, fontWeight: 700, color: c.ink }}>{borrowerName}</p>
                     <p className="body" style={{ fontSize: 11, color: c.muted, marginTop: 2 }}>{loan.product} · {loan.id}</p>
                   </div>
                   <div className="text-right">

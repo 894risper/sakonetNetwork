@@ -207,12 +207,28 @@ const reducerHandlers = {
   "FLOAT/RELEASE": (state, { saccoCode, amount }) =>
     updateSacco(state, saccoCode, (sacco) => ({ ...sacco, locked: Math.max(0, sacco.locked - amount) })),
 
+  // Debits the guarantor SACCO when a claim is settled: releases the
+  // committed portion (locked) AND removes it from that SACCO's own
+  // totalFloat, since the money is actually leaving their book to pay
+  // out the claim. Paired with FLOAT/CREDIT below, which is what
+  // actually receives that money on the borrower SACCO's side — without
+  // that pairing this looked like money vanishing from the network
+  // instead of just changing hands.
   "FLOAT/SETTLE": (state, { saccoCode, amount }) =>
     updateSacco(state, saccoCode, (sacco) => ({
       ...sacco,
       locked: Math.max(0, sacco.locked - amount),
       totalFloat: sacco.totalFloat - amount,
     })),
+
+  // Credits a SACCO's totalFloat only (never touches locked) — used to
+  // land the settled amount on the borrower SACCO's side when a claim
+  // is settled, so the transfer is a wash across the network: one
+  // SACCO's totalFloat goes down by exactly what the other's goes up
+  // by, and once nothing is locked anywhere the network's available
+  // float is back to its full original total.
+  "FLOAT/CREDIT": (state, { saccoCode, amount }) =>
+    updateSacco(state, saccoCode, (sacco) => ({ ...sacco, totalFloat: sacco.totalFloat + amount })),
 
   "GUARANTEE/CREATE": (state, { guarantee }) => ({ ...state, guarantees: { ...state.guarantees, [guarantee.id]: guarantee } }),
 
@@ -551,6 +567,17 @@ export function SakonetProvider({ children }) {
     });
   }, [state, log, notify]);
 
+  // ---- settleClaim ----
+  // Settling a claim moves money, not just clears a flag: the guarantor
+  // SACCO's committed amount is released AND actually leaves their float
+  // (FLOAT/SETTLE), and — this is the part that was missing — that same
+  // amount lands on the borrower SACCO's float (FLOAT/CREDIT), since the
+  // payout is what makes the borrower SACCO whole after the default.
+  // Net effect on the network: total float is unchanged (it's a
+  // transfer, not a loss), the guarantor SACCO's own float goes down by
+  // the settled amount, the borrower SACCO's goes up by the same
+  // amount, and once nothing is left locked anywhere, network-wide
+  // available float is back to the full total.
   const settleClaim = useCallback((guaranteeId) => {
     const g = state.guarantees[guaranteeId];
     if (!g) return;
@@ -563,10 +590,11 @@ export function SakonetProvider({ children }) {
     dispatch({ type: "GUARANTEE/STATUS", id: guaranteeId, status: "settled", extra: { settlementId } });
     if (claim) dispatch({ type: "CLAIM/SETTLE", id: claim.id, settlementId });
     dispatch({ type: "FLOAT/SETTLE", saccoCode: g.guarantorSacco, amount: g.amount });
+    dispatch({ type: "FLOAT/CREDIT", saccoCode: g.borrowerSacco, amount: g.amount });
 
     log({ from: guarantorSaccoName, to: "SAKONET Network", text: `KES ${g.amount.toLocaleString("en-KE")} released from reserved float for settlement.`, kind: "network" });
     setTimeout(() => {
-      log({ from: "SAKONET Network", to: borrowerSaccoName, text: `Settlement ${settlementId} completed — KES ${g.amount.toLocaleString("en-KE")} transferred.`, kind: "network" });
+      log({ from: "SAKONET Network", to: borrowerSaccoName, text: `Settlement ${settlementId} completed — KES ${g.amount.toLocaleString("en-KE")} transferred to ${borrowerSaccoName}'s float.`, kind: "network" });
     }, 500);
     setTimeout(() => {
       notify(g.guarantorMemberNo, { type: "sacco", title: "Guarantee called and settled", body: `Your guarantee has been used to settle the default. KES ${g.amount.toLocaleString("en-KE")} was paid from your SACCO's float.` });
