@@ -10,23 +10,24 @@ import {
 /* ---------------------------------------------------------------
    BEAUTY SACCO — staff / back-office dashboard
    This is the "SACCO B" side of the flow: the guarantor's SACCO.
-   Brown/teal is Beauty SACCO's institutional palette. Any figure or
-   status that belongs to SAKONET (the inter-SACCO network) uses the
-   separate slate-blue family so cross-SACCO activity is always
-   visually distinct from Beauty SACCO's own book.
+   Light, cool orchid/fuchsia is Beauty SACCO's institutional palette
+   (matches guarantor.jsx). Any figure or status that belongs to
+   SAKONET (the inter-SACCO network) uses the separate slate-blue
+   family so cross-SACCO activity is always visually distinct from
+   Beauty SACCO's own book.
 ----------------------------------------------------------------- */
 
 const c = {
-  ink: "#122A2E",
-  paper: "#F2EEE3",
+  ink: "#332933",
+  paper: "#FBF6FA",
   panel: "#FFFFFF",
-  border: "#DED7C4",
-  teal: "#0C5C5C",
-  tealDeep: "#083F3F",
-  tealSoft: "#DCEBE9",
-  gold: "#C99A44",
-  goldSoft: "#F1E6CB",
-  muted: "#6C7267",
+  border: "#EEE2EC",
+  teal: "#C07DBB",
+  tealDeep: "#8C5A88",
+  tealSoft: "#F8ECF6",
+  gold: "#C79A5F",
+  goldSoft: "#F6ECDB",
+  muted: "#8A818A",
   danger: "#A6402A",
   dangerSoft: "#F3E1DB",
   success: "#2E7D4F",
@@ -47,7 +48,7 @@ const shortDate = (iso) => new Date(iso).toLocaleDateString("en-KE", { day: "2-d
 
 /* ---------------- Member book for Beauty SACCO ---------------- */
 const members = [
-  { id: "BT-3390", name: "Joseph Otieno", phone: "0722 341 908", joined: "2019-03-11", savings: 640000, shares: 320000, loanStatus: "None", exposure: 0 },
+  { id: "BT-3390", name: "Phoebe Atieno", phone: "0722 341 908", joined: "2019-03-11", savings: 640000, shares: 320000, loanStatus: "None", exposure: 0 },
   { id: "BT-1001", name: "Daniel Kiptoo", phone: "0733 118 224", joined: "2020-07-02", savings: 240000, shares: 41000, loanStatus: "Active loan", exposure: 95000 },
   { id: "BT-1002", name: "Fatuma Ali", phone: "0711 902 456", joined: "2018-11-19", savings: 310000, shares: 52000, loanStatus: "None", exposure: 0 },
   { id: "BT-1003", name: "Esther Nduta", phone: "0798 220 331", joined: "2017-05-27", savings: 190000, shares: 28000, loanStatus: "None", exposure: 0 },
@@ -55,7 +56,7 @@ const members = [
 
 /* ---------------- Beauty SACCO members (with capacity) ---------------- */
 const beautyMembers = [
-  { id: "BT-3390", name: "Joseph Otieno", phone: "0722 341 908", joined: "2019-03-11", savings: 640000, shares: 320000, loanStatus: "None", exposure: 0, capacity: 320000 },
+  { id: "BT-3390", name: "Phoebe Atieno", phone: "0722 341 908", joined: "2019-03-11", savings: 640000, shares: 320000, loanStatus: "None", exposure: 0, capacity: 320000 },
   { id: "BT-1001", name: "Daniel Kiptoo", phone: "0733 118 224", joined: "2020-07-02", savings: 240000, shares: 41000, loanStatus: "Active loan", exposure: 95000, capacity: 150000 },
   { id: "BT-1002", name: "Fatuma Ali", phone: "0711 902 456", joined: "2018-11-19", savings: 310000, shares: 52000, loanStatus: "None", exposure: 0, capacity: 180000 },
   { id: "BT-1003", name: "Esther Nduta", phone: "0798 220 331", joined: "2017-05-27", savings: 190000, shares: 28000, loanStatus: "None", exposure: 0, capacity: 70000 },
@@ -333,10 +334,10 @@ function LoanDetailView({ loan, onBack }) {
         <ArrowLeft size={14} /> Back to loans
       </button>
 
-      <div className="rounded-2xl p-5 mb-5" style={{ background: c.teal }}>
+      <div className="rounded-2xl p-5 mb-5" style={{ background: c.tealDeep }}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="body" style={{ fontSize: 12, color: "#B7DAD3" }}>{liveLoan.id} · {liveLoan.product}</p>
+            <p className="body" style={{ fontSize: 12, color: c.tealSoft }}>{liveLoan.id} · {liveLoan.product}</p>
             <p className="disp" style={{ fontSize: 24, fontWeight: 600, color: "#fff", marginTop: 4 }}>
               {borrower?.name || liveLoan.borrower || liveLoan.borrowerMemberNo}
             </p>
@@ -344,9 +345,9 @@ function LoanDetailView({ loan, onBack }) {
           <StagePill stage={liveLoan.stage} />
         </div>
         <div className="flex gap-8 mt-5">
-          <div><p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Amount</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{kes(liveLoan.amount)}</p></div>
-          <div><p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Term</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{liveLoan.term} months</p></div>
-          <div><p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Purpose</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{liveLoan.purpose || "—"}</p></div>
+          <div><p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Amount</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{kes(liveLoan.amount)}</p></div>
+          <div><p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Term</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{liveLoan.term} months</p></div>
+          <div><p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Purpose</p><p className="body" style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{liveLoan.purpose || "—"}</p></div>
         </div>
         {liveLoan.repayment === "arrears" && (
           <div className="mt-4 rounded-xl p-3 flex items-center gap-2" style={{ background: c.dangerSoft }}>
@@ -405,7 +406,7 @@ function LoanDetailView({ loan, onBack }) {
 
         {guarantors.some((g) => g.mode === "sakonet" || g.type === "sakonet") && (
           <p className="body mt-4" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.5 }}>
-            SAKONET routes the request to Beauty SACCO. Beauty verifies the member and capacity, then Beauty SACCO sends the request to Joseph. Joseph's decision returns to Beauty SACCO first, then Beauty sends the official confirmation through SAKONET.
+            SAKONET routes the request to Beauty SACCO. Beauty verifies the member and capacity, then Beauty SACCO sends the request to Phoebe. Phoebe's decision returns to Beauty SACCO first, then Beauty sends the official confirmation through SAKONET.
           </p>
         )}
       </div>
@@ -702,7 +703,7 @@ export default function BeautyStaffDashboard() {
       <div className="flex flex-col" style={{ width: 232, background: c.tealDeep, flexShrink: 0 }}>
         <div className="px-5 pt-6 pb-5">
           <p className="disp" style={{ fontSize: 19, fontWeight: 600, color: "#fff" }}>Beauty</p>
-          <p className="body" style={{ fontSize: 11, color: "#8FB39E", fontWeight: 600, letterSpacing: 0.3 }}>SACCO · staff portal</p>
+          <p className="body" style={{ fontSize: 11, color: "#EAD9E7", fontWeight: 600, letterSpacing: 0.3 }}>SACCO · staff portal</p>
         </div>
         <div className="flex flex-col gap-0.5 px-3">
           {navItems.map((item) => {
@@ -713,7 +714,7 @@ export default function BeautyStaffDashboard() {
                 key={item.id}
                 onClick={() => { if (item.id === "sakonet") { window.history.pushState({}, "", "/sacco/network/BTY"); window.dispatchEvent(new PopStateEvent("popstate")); return; } setNav(item.id); if (item.id !== "loans") setOpenLoan(null); }}
                 className="flex items-center gap-3 rounded-lg body"
-                style={{ padding: "9px 12px", fontSize: 13, fontWeight: 500, color: active ? "#fff" : "#B7CBBE", background: active ? "rgba(255,255,255,0.08)" : "transparent" }}
+                style={{ padding: "9px 12px", fontSize: 13, fontWeight: 500, color: active ? "#fff" : "#D9C0D6", background: active ? "rgba(255,255,255,0.08)" : "transparent" }}
               >
                 <Icon size={16} /> {item.label}
               </button>
@@ -722,7 +723,7 @@ export default function BeautyStaffDashboard() {
         </div>
         <div className="mt-auto px-5 pb-6">
           <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.06)" }}>
-            <p className="body" style={{ fontSize: 11, color: "#8FB39E" }}>Logged in as</p>
+            <p className="body" style={{ fontSize: 11, color: "#EAD9E7" }}>Logged in as</p>
             <p className="body" style={{ fontSize: 12.5, fontWeight: 600, color: "#fff" }}>Halima Juma, Loan Officer</p>
           </div>
         </div>

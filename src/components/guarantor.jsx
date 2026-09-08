@@ -7,33 +7,37 @@ import {
 import { useSakonet } from "./store";
 
 /* -----------------------------------------------------------------
-   BEAUTY SACCO — member app, for Joseph Otieno (guarantor side).
+   BEAUTY SACCO — member app, for Phoebe Atieno (guarantor side).
 
    Reads and writes the shared store (store.jsx) — the same one
-   mkulimaSacco.jsx and sakonet.jsx use. The request Joseph sees here
+   mkulimaSacco.jsx and sakonet.jsx use. The request Phoebe sees here
    is real: it only appears once Beauty SACCO has received the request,
-   verified Joseph and his capacity, and sent the request from Beauty SACCO.
-   Accepting/declining here records Joseph's decision at Beauty SACCO first;
+   verified Phoebe and her capacity, and sent the request from Beauty SACCO.
+   Accepting/declining here records Phoebe's decision at Beauty SACCO first;
    Beauty then sends the official SACCO-to-SACCO confirmation through the
    SAKONET Network.
+
+   Palette: light, cool orchid/fuchsia — Beauty SACCO's institutional
+   color. Kept the `teal`/`tealDeep`/`tealSoft` variable names to avoid
+   touching every usage site; the hex values are the soft fuchsia tones.
 ----------------------------------------------------------------- */
 
 const CURRENT_MEMBER_NO = "BT-3390";
 const SACCO_CODE = "BTY";
 
 const c = {
-  ink: "#122A2E",
-  paper: "#F2EEE3",
+  ink: "#332933",
+  paper: "#FBF6FA",
   panel: "#FFFFFF",
-  border: "#DED7C4",
-  teal: "#0C5C5C",
-  tealDeep: "#083F3F",
-  tealSoft: "#DCEBE9",
+  border: "#EEE2EC",
+  teal: "#C07DBB",
+  tealDeep: "#8C5A88",
+  tealSoft: "#F8ECF6",
   coral: "#B9502F",
   coralSoft: "#F3E1D6",
-  gold: "#C99A44",
-  goldSoft: "#F1E6CB",
-  muted: "#6C7267",
+  gold: "#C79A5F",
+  goldSoft: "#F6ECDB",
+  muted: "#8A818A",
   success: "#2E7D4F",
   successSoft: "#E3EFE6",
   danger: "#A6402A",
@@ -62,15 +66,15 @@ const fontStack = `
       width: 390px;
       height: 800px;
       border-radius: 40px;
-      border: 10px solid #122A2E;
-      box-shadow: 0 30px 60px rgba(12,92,92,0.25);
+      border: 10px solid #332933;
+      box-shadow: 0 30px 60px rgba(140,90,136,0.25);
     }
   }
 `;
 
 const fmt = (n) => "KES " + Number(n).toLocaleString("en-KE");
 
-// A guarantee Joseph already holds locally at Beauty SACCO — not part
+// A guarantee Phoebe already holds locally at Beauty SACCO — not part
 // of the live Sakonet demo, kept as static context for the screen.
 const activeGuarantee = {
   name: "Daniel Kiptoo",
@@ -187,22 +191,22 @@ function HomeScreen({ member, goGuarantor, goNotifications, hasPending }) {
         </button>
       </div>
 
-      <div className="rounded-2xl p-5 mb-4" style={{ background: c.teal }}>
-        <p className="body" style={{ fontSize: 12, color: "#B7DAD3", marginBottom: 4 }}>Total savings & shares</p>
+      <div className="rounded-2xl p-5 mb-4" style={{ background: c.tealDeep }}>
+        <p className="body" style={{ fontSize: 12, color: c.tealSoft, marginBottom: 4 }}>Total savings & shares</p>
         <p className="disp" style={{ fontSize: 27, fontWeight: 600, color: "#fff", letterSpacing: -0.3 }}>
           {fmt(member.savings + member.shares)}
         </p>
         <div className="flex gap-5 mt-4">
           <div>
-            <p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Savings</p>
+            <p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Savings</p>
             <p className="body" style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{fmt(member.savings)}</p>
           </div>
           <div>
-            <p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Shares</p>
+            <p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Shares</p>
             <p className="body" style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{fmt(member.shares)}</p>
           </div>
           <div>
-            <p className="body" style={{ fontSize: 11, color: "#B7DAD3" }}>Member No.</p>
+            <p className="body" style={{ fontSize: 11, color: c.tealSoft }}>Member No.</p>
             <p className="body" style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{member.memberNo}</p>
           </div>
         </div>
@@ -254,7 +258,7 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
   return (
     <div className="flex-1 flex flex-col" style={{ background: c.paper }}>
       <TopBar title="Guarantee request" onBack={onBack} />
-      <div className="px-5 flex-1 overflow-hidden pb-3">
+      <div className="px-5 flex-1 overflow-y-auto pb-3">
         <div className="rounded-2xl p-3 mb-4 flex gap-2" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}>
           <Globe2 size={14} color={c.sakonet} style={{ flexShrink: 0, marginTop: 1 }} />
           <p className="body" style={{ fontSize: 11.5, color: c.sakonet, lineHeight: 1.5 }}>
@@ -262,13 +266,13 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
           </p>
         </div>
 
-        <div className="rounded-2xl p-5 mb-4" style={{ background: c.teal }}>
+        <div className="rounded-2xl p-5 mb-4" style={{ background: c.tealDeep }}>
           <div className="flex items-center justify-between mb-1">
-            <p className="body" style={{ fontSize: 12, color: "#B7DAD3" }}>{request.product} · {request.loanId}</p>
+            <p className="body" style={{ fontSize: 12, color: c.tealSoft }}>{request.product} · {request.loanId}</p>
             <SakonetBadge label="SAKONET Network" />
           </div>
           <p className="disp" style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginTop: 4 }}>{request.borrower}</p>
-          <p className="body" style={{ fontSize: 12, color: "#B7DAD3", marginTop: 2 }}>Loan amount {fmt(request.loanAmount)} · {request.term}</p>
+          <p className="body" style={{ fontSize: 12, color: c.tealSoft, marginTop: 2 }}>Loan amount {fmt(request.loanAmount)} · {request.term}</p>
         </div>
 
         <div className="rounded-2xl p-4 mb-4" style={{ background: c.panel, border: `1px solid ${c.border}` }}>
@@ -341,10 +345,10 @@ function RequestDetail({ request, member, onBack, onRespond, relayLog, respondSt
       </div>
 
       {showPin && !isDone && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(8,63,63,0.45)", zIndex: 40 }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ background: "rgba(140,90,136,0.45)", zIndex: 40 }}>
           <div className="rounded-2xl p-5 mx-5" style={{ background: c.panel, width: 330, boxShadow: "0 20px 50px rgba(0,0,0,0.2)" }}>
             <p className="disp" style={{ fontSize: 18, fontWeight: 700, color: c.ink }}>Confirm with your SACCO PIN</p>
-            <p className="body" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.45, marginTop: 5 }}>Beauty SACCO records your decision before it is sent to Sakonet.</p>
+            <p className="body" style={{ fontSize: 11.5, color: c.muted, lineHeight: 1.45, marginTop: 5 }}>Beauty SACCO records your decision before it is sent to Sakonet. Demo PIN: 654321.</p>
             <input autoFocus inputMode="numeric" maxLength={6} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} placeholder="6-digit PIN" className="body w-full rounded-xl mt-4" style={{ padding: "12px", fontSize: 16, letterSpacing: 4, textAlign: "center", border: `1px solid ${pinError ? c.danger : c.border}`, outline: "none" }} />
             {pinError && <p className="body" style={{ fontSize: 11, color: c.danger, marginTop: 5 }}>{pinError}</p>}
             <div className="flex gap-2 mt-4">
@@ -409,7 +413,7 @@ function GuarantorScreen({ store, member, requestView }) {
     if (result?.ok === false) return result;
 
     setRespondStatus("sending");
-    setRelayLog([{ text: "Joseph → Beauty SACCO: decision recorded by your SACCO…", done: false }]);
+    setRelayLog([{ text: "Phoebe → Beauty SACCO: decision recorded by your SACCO…", done: false }]);
 
     // Beyond this, the real progress (Beauty SACCO staff confirmation, then
     // the SAKONET/Mkulima relay) is driven entirely by store state — the

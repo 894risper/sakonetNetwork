@@ -8,7 +8,11 @@ import {
 
 /* -----------------------------------------------------------------
    SAKONET — network operator console.
-   Now connected to the shared store via useSakonet().
+   SAKONET is the integration layer connecting Mkulima SACCO and
+   Beauty SACCO. The onboarding flow below is kept as a demo beat —
+   it always targets Beauty SACCO (already active on the network),
+   so "onboarding" walks through verification and then hands off
+   straight to Beauty's SACCO login instead of creating a duplicate.
 ----------------------------------------------------------------- */
 
 const c = {
@@ -152,7 +156,7 @@ function DashboardView({ setNav }) {
   const store = useSakonet();
   const { state } = store;
   const saccos = Object.values(state.saccos).filter((s) => s.onboarded === true);
-    const totalFloat = saccos.reduce((s, x) => s + x.totalFloat, 0);
+  const totalFloat = saccos.reduce((s, x) => s + x.totalFloat, 0);
   const lockedFloat = saccos.reduce((s, x) => s + x.locked, 0);
   const availableFloat = totalFloat - lockedFloat;
   const guarantees = Object.values(state.guarantees);
@@ -165,7 +169,7 @@ function DashboardView({ setNav }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="SACCOs onboarded" value={saccos.length} icon={Building2} />
+        <KpiCard label="SACCOs on network" value={saccos.length} icon={Building2} />
         <KpiCard label="Total network float" value={kes(totalFloat)} icon={Landmark} />
         <KpiCard label="Committed float" value={kes(lockedFloat)} icon={Lock} tone={c.gold} />
         <KpiCard label="Available float" value={kes(availableFloat)} icon={Unlock} tone={c.success} />
@@ -200,9 +204,9 @@ function DashboardView({ setNav }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>Network setup</h3>
-            <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Mkulima, Beauty, Jenga and Baraka are onboarded network participants. GT10 becomes available once it is onboarded, then acts as the SACCO login used to view the network data.</p>
+            <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>SAKONET is the network layer connecting Mkulima SACCO and Beauty SACCO — routing guarantee requests and confirmations between them without either SACCO's members ever contacting the other SACCO directly.</p>
           </div>
-          <Pill tone="neutral">5 network SACCOs</Pill>
+          <Pill tone="neutral">2 network SACCOs</Pill>
         </div>
       </div>
 
@@ -236,18 +240,28 @@ function DashboardView({ setNav }) {
 }
 
 /* ================= SACCOS & FLOAT ================= */
-function OnboardModal({ onClose, onCreate, onOpenNetwork }) {
-  const [form, setForm] = useState({ name: "GT10 SACCO", reg: "GT10-001", contact: "GT10 Administrator", email: "admin@gt10sacco.co.ke", phone: "0700 100 010" });
+// Onboarding demo beat. Always walks through verifying Beauty SACCO's
+// details — the form is pre-filled with Beauty's real record. Since
+// Beauty is already active on the network, "submitting" doesn't create
+// a new SACCO; it confirms the existing one and hands off to its login.
+function OnboardModal({ onClose, onOpenNetwork }) {
+  const store = useSakonet();
+  const beauty = store.state.saccos.BTY;
+  const [form] = useState({
+    name: beauty.name,
+    reg: beauty.registrationNo,
+    contact: beauty.contact,
+    email: beauty.email,
+    phone: beauty.phone,
+  });
   const [checks, setChecks] = useState([]);
   const [done, setDone] = useState(false);
-  const [created, setCreated] = useState(null);
-  const [error, setError] = useState("");
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const canSubmit = form.name && form.reg && form.contact && form.email && form.phone;
+
+  const steps = ["SACCO details verified", "Registration number verified", "Integration endpoint tested", "Network agreement confirmed", "Existing KES 1,000,000 float confirmed"];
 
   const runVerification = () => {
-    const steps = ["SACCO details verified", "Registration number verified", "Integration endpoint tested", "Network agreement accepted", "KES 1,000,000 float confirmed"];
     setChecks([]);
+    setDone(false);
     steps.forEach((s, i) => {
       setTimeout(() => setChecks((prev) => [...prev, s]), (i + 1) * 450);
     });
@@ -265,26 +279,25 @@ function OnboardModal({ onClose, onCreate, onOpenNetwork }) {
         {!checks.length && !done && (
           <div className="flex flex-col gap-3">
             {[
-              ["SACCO name", "name", "e.g. Nyota SACCO"],
-              ["Registration number", "reg", "SACCO-00XXXX"],
-              ["Contact person", "contact", "Full name"],
-              ["Email", "email", "admin@sacco.co.ke"],
-              ["Phone", "phone", "07XXXXXXXX"],
-            ].map(([label, key, ph]) => (
-              <div key={key}>
+              ["SACCO name", form.name],
+              ["Registration number", form.reg],
+              ["Contact person", form.contact],
+              ["Email", form.email],
+              ["Phone", form.phone],
+            ].map(([label, value]) => (
+              <div key={label}>
                 <p className="body" style={{ fontSize: 11.5, fontWeight: 600, color: c.muted, marginBottom: 4 }}>{label}</p>
-                <input value={form[key]} onChange={set(key)} placeholder={ph} className="body w-full rounded-lg" style={{ padding: "9px 12px", fontSize: 13, border: `1px solid ${c.line}`, outline: "none" }} />
+                <input value={value} readOnly className="body w-full rounded-lg" style={{ padding: "9px 12px", fontSize: 13, border: `1px solid ${c.line}`, outline: "none", background: c.paper, color: c.ink }} />
               </div>
             ))}
             <div className="rounded-xl p-3 mt-1" style={{ background: c.goldSoft }}>
-              <p className="body" style={{ fontSize: 12, fontWeight: 700, color: "#7A5C16" }}>Required guarantee float: {kes(1000000)}</p>
+              <p className="body" style={{ fontSize: 12, fontWeight: 700, color: "#7A5C16" }}>Guarantee float: {kes(beauty.totalFloat)}</p>
               <p className="body" style={{ fontSize: 11, color: "#7A5C16", marginTop: 2 }}>Backs every guarantee this SACCO's members make across the network.</p>
             </div>
             <button
-              disabled={!canSubmit}
               onClick={runVerification}
               className="w-full rounded-xl body mt-2"
-              style={{ padding: "11px 0", fontSize: 13.5, fontWeight: 700, background: canSubmit ? c.primary : c.line, color: "#fff" }}
+              style={{ padding: "11px 0", fontSize: 13.5, fontWeight: 700, background: c.primary, color: "#fff" }}
             >
               Submit onboarding request
             </button>
@@ -293,36 +306,24 @@ function OnboardModal({ onClose, onCreate, onOpenNetwork }) {
 
         {checks.length > 0 && (
           <div className="flex flex-col gap-2">
-            {["SACCO details verified", "Registration number verified", "Integration endpoint tested", "Network agreement accepted", "KES 1,000,000 float confirmed"].map((s) => (
+            {steps.map((s) => (
               <div key={s} className="flex items-center gap-2">
                 {checks.includes(s) ? <CheckCircle2 size={15} color={c.success} /> : <Loader2 size={15} color={c.muted} className="animate-spin" />}
                 <span className="body" style={{ fontSize: 12.5, color: c.ink }}>{s}</span>
               </div>
             ))}
             {done && (
-              <>
-                {!created && <button
-                  onClick={() => { const result = onCreate(form); if (result?.ok === false) { setError(result.error); return; } setCreated(result.sacco); }}
-                  className="w-full rounded-xl body mt-3"
-                  style={{ padding: "11px 0", fontSize: 13.5, fontWeight: 700, background: c.success, color: "#fff" }}
-                >
-                  Activate {form.name} on Sakonet
-                </button>}
-                {error && <p className="body" style={{ fontSize: 11.5, color: c.danger, marginTop: 8 }}>{error}</p>}
-                {created && (
-                  <div className="rounded-xl p-4 mt-3" style={{ background: c.successSoft, border: `1px solid #BBD8C4` }}>
-                    <p className="body" style={{ fontSize: 12, fontWeight: 700, color: c.success }}>SACCO activated successfully</p>
-                    <p className="body" style={{ fontSize: 11.5, color: c.ink, marginTop: 5 }}>{created.name} · {created.code}</p>
-                    <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>Network PIN</p>
-                    <p className="mono" style={{ fontSize: 22, fontWeight: 700, color: c.primaryDeep, letterSpacing: 3 }}>{created.networkPin}</p>
-                    <p className="body" style={{ fontSize: 10.5, color: c.muted, marginTop: 4 }}>Give this PIN only to the authorised SACCO system administrator. It authenticates SACCO-to-SAKONET communication.</p>
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={onClose} className="flex-1 rounded-xl body" style={{ padding: "10px 0", fontSize: 12.5, fontWeight: 700, background: c.paper, color: c.ink, border: `1px solid ${c.line}` }}>Done</button>
-                      <button onClick={() => onOpenNetwork(created.code)} className="flex-1 rounded-xl body" style={{ padding: "10px 0", fontSize: 12.5, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>Continue to SACCO login</button>
-                    </div>
-                  </div>
-                )}
-              </>
+              <div className="rounded-xl p-4 mt-3" style={{ background: c.successSoft, border: `1px solid #BBD8C4` }}>
+                <p className="body" style={{ fontSize: 12, fontWeight: 700, color: c.success }}>{beauty.name} already exists on SAKONET</p>
+                <p className="body" style={{ fontSize: 11.5, color: c.ink, marginTop: 5 }}>{beauty.name} · {beauty.code}</p>
+                <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>Network PIN</p>
+                <p className="mono" style={{ fontSize: 22, fontWeight: 700, color: c.primaryDeep, letterSpacing: 3 }}>{beauty.networkPin}</p>
+                <p className="body" style={{ fontSize: 10.5, color: c.muted, marginTop: 4 }}>This SACCO is already active and integrated on SAKONET — proceed straight to its network login.</p>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={onClose} className="flex-1 rounded-xl body" style={{ padding: "10px 0", fontSize: 12.5, fontWeight: 700, background: c.paper, color: c.ink, border: `1px solid ${c.line}` }}>Done</button>
+                  <button onClick={() => onOpenNetwork(beauty.code)} className="flex-1 rounded-xl body" style={{ padding: "10px 0", fontSize: 12.5, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>Continue to SACCO login</button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -342,11 +343,11 @@ function SaccoDetail({ sacco, onBack }) {
     const result = authenticateSaccoApi(sacco.code, pin);
     setApiResult(result.ok ? { ok: true, message: "API authentication accepted. SACCO can access SAKONET through the network API." } : { ok: false, message: result.error });
   };
-  
+
   const saccoRequests = Object.values(state.requests).filter(
     r => r.guarantorSacco === sacco.code || r.borrowerSacco === sacco.code
   );
-  
+
   return (
     <div>
       <button onClick={onBack} className="body flex items-center gap-1 mb-4" style={{ fontSize: 12.5, color: c.muted, fontWeight: 600 }}>
@@ -417,7 +418,6 @@ function SaccosView({ onOnboard }) {
   const { state } = store;
   const [selected, setSelected] = useState(null);
   const saccos = Object.values(state.saccos).filter((s) => s.onboarded === true);
-  const pending = Object.values(state.saccos).filter((s) => !s.onboarded);
 
   if (selected) return <SaccoDetail sacco={selected} onBack={() => setSelected(null)} />;
 
@@ -425,14 +425,16 @@ function SaccosView({ onOnboard }) {
     <div>
       <div className="flex items-center justify-between mb-4 gap-4">
         <div>
-          <p className="body" style={{ fontSize: 12, color: c.muted }}>Jenga and Baraka are onboarded SACCOs with their network views available. GT10 remains pending until it is onboarded.</p>
+          <p className="body" style={{ fontSize: 12, color: c.muted }}>Mkulima SACCO and Beauty SACCO are the two institutions integrated on SAKONET.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-xl px-3 py-2" style={{ background: c.successSoft, border: `1px solid #BBD8C4` }}>
-            <p className="body" style={{ fontSize: 11.5, color: c.success, fontWeight: 700 }}>{saccos.length} onboarded SACCOs</p>
+            <p className="body" style={{ fontSize: 11.5, color: c.success, fontWeight: 700 }}>{saccos.length} SACCOs on network</p>
             <p className="body" style={{ fontSize: 10.5, color: c.muted }}>Network</p>
           </div>
-          <button onClick={onOnboard} className="body rounded-xl" style={{ padding: "9px 13px", fontSize: 12, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>+ Add new SACCO</button>
+          <button onClick={onOnboard} className="body rounded-xl flex items-center gap-1" style={{ padding: "9px 13px", fontSize: 12, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>
+            <Plus size={14} /> Add new SACCO
+          </button>
         </div>
       </div>
       <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${c.line}` }}>
@@ -461,18 +463,6 @@ function SaccosView({ onOnboard }) {
           </tbody>
         </table>
       </div>
-
-      {pending.map((s) => (
-        <div key={s.code} className="rounded-2xl p-5 mt-5" style={{ background: c.primarySoft, border: `1px solid #C7D6E8` }}>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="disp" style={{ fontSize: 14, fontWeight: 700, color: c.ink }}>{s.name} · not yet onboarded</p>
-              <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>Use <strong>+ Add new SACCO</strong> to onboard GT10. The form is pre-filled for review before submitting.</p>
-            </div>
-            <Pill tone="pending">Pending</Pill>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -482,7 +472,7 @@ function RequestsView() {
   const store = useSakonet();
   const { state } = store;
   const requests = Object.values(state.requests);
-  
+
   return (
     <div className="flex flex-col gap-5">
       {requests.length === 0 && (
@@ -490,12 +480,12 @@ function RequestsView() {
           <p className="body" style={{ fontSize: 13, color: c.muted }}>No guarantee requests yet. Submit one from the Mkulima Member App.</p>
         </div>
       )}
-      
+
       {requests.map((request) => {
         const borrowerSacco = state.saccos[request.borrowerSacco]?.name || request.borrowerSacco;
         const guarantorSacco = state.saccos[request.guarantorSacco]?.name || request.guarantorSacco;
         const loan = state.loans[request.loanId];
-        
+
         let stageMessage = null;
         if (request.stage === "member_notified_by_mkulima" || request.stage === "sacco_received_confirmation") {
           stageMessage = (
@@ -534,7 +524,7 @@ function RequestsView() {
             </div>
           );
         }
-        
+
         return (
           <div key={request.id} className="rounded-2xl p-5" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
             <div className="flex items-center justify-between mb-4">
@@ -687,7 +677,7 @@ function GuaranteeCard({ guarantee }) {
   const store = useSakonet();
   const { state } = store;
   const saccos = Object.values(state.saccos);
-  
+
   const statusMap = {
     performing: { tone: "active", label: "Performing" },
     released: { tone: "active", label: "Released" },
@@ -697,14 +687,14 @@ function GuaranteeCard({ guarantee }) {
   const s = statusMap[guarantee.status] || statusMap.performing;
   const guarantorSaccoName = saccos.find(s => s.code === guarantee.guarantorSacco)?.name || guarantee.guarantorSacco;
   const borrowerSaccoName = saccos.find(s => s.code === guarantee.borrowerSacco)?.name || guarantee.borrowerSacco;
-  
+
   let statusMessage = null;
   if (guarantee.status === "released") {
     statusMessage = <p className="body mt-3" style={{ fontSize: 11.5, color: c.success }}>Float released back to {guarantorSaccoName}'s available balance.</p>;
   } else if (guarantee.status === "settled") {
     statusMessage = <p className="body mt-3" style={{ fontSize: 11.5, color: c.danger }}>{kes(guarantee.amount)} transferred from {guarantorSaccoName}'s float to {borrowerSaccoName}.</p>;
   }
-  
+
   return (
     <div className="rounded-2xl p-4" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
       <div className="flex items-center justify-between mb-2">
@@ -737,7 +727,7 @@ function GuaranteesView() {
   const store = useSakonet();
   const { state } = store;
   const guarantees = Object.values(state.guarantees);
-  
+
   if (guarantees.length === 0) {
     return (
       <div className="rounded-2xl p-6 text-center" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
@@ -749,54 +739,6 @@ function GuaranteesView() {
   return (
     <div className="grid grid-cols-2 gap-4">
       {guarantees.map((g) => <GuaranteeCard key={g.id} guarantee={g} />)}
-    </div>
-  );
-}
-
-
-/* ================= SACCO CREATION ROUTE ================= */
-export function SaccoCreationPage({ onBack }) {
-  const store = useSakonet();
-  const [form, setForm] = useState({ name: "GT10 SACCO", reg: "GT10-001", contact: "GT10 Administrator", email: "admin@gt10sacco.co.ke", phone: "0700 100 010" });
-  const [created, setCreated] = useState(null);
-  const [error, setError] = useState("");
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const complete = Object.values(form).every(Boolean);
-
-  return (
-    <div className="min-h-screen" style={{ background: c.paper, fontFamily: "'Public Sans', sans-serif" }}>
-      <style>{fonts}</style>
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        <button onClick={onBack} className="body flex items-center gap-1 mb-5" style={{ fontSize: 12.5, color: c.muted, fontWeight: 600 }}><ArrowLeft size={14} /> Back to operator console</button>
-        <div className="rounded-2xl p-6" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
-          <p className="body" style={{ fontSize: 11, color: c.primary, fontWeight: 700, letterSpacing: .5 }}>SAKONET NETWORK ONBOARDING</p>
-          <h1 className="disp" style={{ fontSize: 28, fontWeight: 700, color: c.ink, marginTop: 5 }}>Create and activate a SACCO</h1>
-          <p className="body" style={{ fontSize: 13, color: c.muted, lineHeight: 1.5, marginTop: 6 }}>Create the SACCO record, issue its network PIN and activate its KES 1,000,000 guarantee float in one flow.</p>
-
-          {!created ? <>
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              {[["SACCO name","name","e.g. Nyota SACCO"],["Registration number","reg","SACCO-00XXXX"],["Authorised contact","contact","Full name"],["Email","email","admin@sacco.co.ke"],["Phone","phone","07XXXXXXXX"]].map(([label,key,placeholder]) => (
-                <div key={key} className={key === "name" ? "col-span-2" : ""}>
-                  <p className="body" style={{ fontSize: 11.5, fontWeight: 600, color: c.muted, marginBottom: 5 }}>{label}</p>
-                  <input value={form[key]} onChange={set(key)} placeholder={placeholder} className="body w-full rounded-xl" style={{ padding: "11px 12px", fontSize: 13, border: `1px solid ${c.line}`, outline: "none" }} />
-                </div>
-              ))}
-            </div>
-            <div className="rounded-xl p-4 mt-5" style={{ background: c.goldSoft }}>
-              <p className="body" style={{ fontSize: 12.5, fontWeight: 700, color: "#7A5C16" }}>Activation package</p>
-              <p className="body" style={{ fontSize: 11.5, color: "#7A5C16", marginTop: 3 }}>KES 1,000,000 guarantee float · unique SACCO code · 6-digit network PIN · active network status.</p>
-            </div>
-            {error && <p className="body" style={{ fontSize: 12, color: c.danger, marginTop: 10 }}>{error}</p>}
-            <button disabled={!complete} onClick={() => { const r = store.createSacco(form); if (!r.ok) setError(r.error); else setCreated(r.sacco); }} className="w-full rounded-xl body mt-5" style={{ padding: "12px 0", fontSize: 13.5, fontWeight: 700, background: complete ? c.primary : c.line, color: "#fff" }}>Create SACCO & issue network credentials</button>
-          </> : <div className="rounded-2xl p-5 mt-6" style={{ background: c.successSoft, border: `1px solid #BBD8C4` }}>
-            <div className="flex items-center gap-2"><CheckCircle2 size={18} color={c.success} /><p className="body" style={{ fontSize: 13.5, fontWeight: 700, color: c.success }}>SACCO activated</p></div>
-            <p className="disp" style={{ fontSize: 22, fontWeight: 700, color: c.ink, marginTop: 8 }}>{created.name}</p>
-            <p className="body" style={{ fontSize: 12, color: c.muted, marginTop: 3 }}>Code: <strong>{created.code}</strong> · Float: <strong>{kes(created.totalFloat)}</strong></p>
-            <div className="rounded-xl p-4 mt-5" style={{ background: c.panel }}><p className="body" style={{ fontSize: 11.5, color: c.muted }}>SACCO network PIN</p><p className="mono" style={{ fontSize: 28, fontWeight: 700, color: c.primaryDeep, letterSpacing: 5 }}>{created.networkPin}</p><p className="body" style={{ fontSize: 11, color: c.muted, lineHeight: 1.45 }}>This authenticates authorised SACCO-to-SAKONET traffic. It is not a member PIN.</p></div>
-            <button onClick={() => { window.history.pushState({}, "", "/gt10/network"); window.dispatchEvent(new PopStateEvent("popstate")); }} className="w-full rounded-xl body mt-4" style={{ padding: "11px 0", fontSize: 13, fontWeight: 700, background: c.primaryDeep, color: "#fff" }}>Continue to SACCO login</button>
-          </div>}
-        </div>
-      </div>
     </div>
   );
 }
@@ -892,25 +834,28 @@ function SaccoNetworkAnalysis({ saccoCode }) {
 }
 
 /* ================= SACCO NETWORK LOGIN ================= */
-export function SaccoNetworkLogin({ saccoCode = "GT10", autoOpen = false }) {
+// Login state lives in the shared store (state.sessionAuth), not local
+// useState — once a SACCO logs in, it stays logged in across navigation
+// and page refresh (store persists to localStorage) until an explicit
+// logout via logoutSaccoNetwork.
+export function SaccoNetworkLogin({ saccoCode, autoOpen = false }) {
   const store = useSakonet();
-  const { state, authenticateSaccoApi } = store;
+  const { state, loginSaccoNetwork } = store;
   const [pin, setPin] = useState("");
-  const [loggedIn, setLoggedIn] = useState(autoOpen);
   const [error, setError] = useState("");
   const sacco = state.saccos[saccoCode];
+  const loggedIn = autoOpen || Boolean(state.sessionAuth?.[saccoCode]);
 
   if (!sacco) return <div className="min-h-screen flex items-center justify-center body">SACCO not found on SAKONET Network.</div>;
 
   const login = () => {
     if (!sacco.onboarded || sacco.status !== "active") {
-      setError("This SACCO has not been activated on SAKONET yet. Use Add new SACCO in the operator console first.");
+      setError("This SACCO is not active on SAKONET yet.");
       return;
     }
-    const result = authenticateSaccoApi(sacco.code, pin);
+    const result = loginSaccoNetwork(sacco.code, pin);
     if (!result.ok) { setError(result.error); return; }
     setError("");
-    setLoggedIn(true);
   };
 
   if (!loggedIn) {
@@ -932,19 +877,37 @@ export function SaccoNetworkLogin({ saccoCode = "GT10", autoOpen = false }) {
 
   const requests = Object.values(state.requests).filter((r) => r.borrowerSacco === saccoCode || r.guarantorSacco === saccoCode);
 
+  const staffDashboardPath = saccoCode === "BTY" ? "/beauty/staff" : "/mkulima/staff";
+  const goToDashboard = () => {
+    window.history.pushState({}, "", staffDashboardPath);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
   return (
     <div className="min-h-screen" style={{ background: c.paper, fontFamily: "'Public Sans', sans-serif" }}>
       <style>{fonts}</style>
       <div className="max-w-6xl mx-auto px-7 py-7">
         <div className="flex items-start justify-between mb-6">
           <div>
+            <button onClick={goToDashboard} className="body flex items-center gap-1 mb-3" style={{ fontSize: 12.5, color: c.muted, fontWeight: 600 }}>
+              <ArrowLeft size={14} /> Back to {sacco.name} dashboard
+            </button>
             <p className="body" style={{ fontSize: 10.5, color: c.primary, fontWeight: 800, letterSpacing: .7 }}>SAKONET NETWORK · READ ONLY</p>
             <h1 className="disp" style={{ fontSize: 27, fontWeight: 700, color: c.ink }}>{sacco.name}</h1>
             <p className="body" style={{ fontSize: 12, color: c.muted, marginTop: 3 }}>Routing, delivery and audit visibility. Approvals and declines are performed in the SACCO staff portal.</p>
           </div>
-          <div className="rounded-xl px-4 py-3" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
-            <p className="body" style={{ fontSize: 10.5, color: c.muted }}>Available float</p>
-            <p className="mono" style={{ fontSize: 17, fontWeight: 700, color: c.ink }}>{kes(sacco.totalFloat - sacco.locked)}</p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl px-4 py-3" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
+              <p className="body" style={{ fontSize: 10.5, color: c.muted }}>Available float</p>
+              <p className="mono" style={{ fontSize: 17, fontWeight: 700, color: c.ink }}>{kes(sacco.totalFloat - sacco.locked)}</p>
+            </div>
+            <button
+              onClick={() => store.logoutSaccoNetwork(saccoCode)}
+              className="body rounded-xl"
+              style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, background: c.panel, color: c.muted, border: `1px solid ${c.line}` }}
+            >
+              Log out
+            </button>
           </div>
         </div>
 
@@ -977,11 +940,8 @@ export function SaccoNetworkLogin({ saccoCode = "GT10", autoOpen = false }) {
 
 /* ================= SAKONET OPERATOR CONSOLE ================= */
 export default function SakonetOperatorConsole() {
-  const store = useSakonet();
   const [nav, setNav] = useState("dashboard");
   const [showOnboard, setShowOnboard] = useState(false);
-
-  const handleOnboard = (form) => store.createSacco(form);
 
   const getTitle = () => {
     const titles = {
@@ -1021,10 +981,9 @@ export default function SakonetOperatorConsole() {
       {showOnboard && (
         <OnboardModal
           onClose={() => setShowOnboard(false)}
-          onCreate={handleOnboard}
           onOpenNetwork={(code) => {
             setShowOnboard(false);
-            window.history.pushState({}, "", code === "GT10" ? "/gt10/network" : `/sacco/network/${code}`);
+            window.history.pushState({}, "", `/sacco/network/${code}`);
             window.dispatchEvent(new PopStateEvent("popstate"));
           }}
         />

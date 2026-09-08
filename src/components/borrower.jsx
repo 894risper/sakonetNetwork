@@ -3,7 +3,7 @@ import { useSakonet } from "./store";
 import {
   Home, Wallet, Users, Bell, ChevronRight, ChevronLeft, X, Check,
   Clock, ShieldCheck, TrendingUp, Send, FileText, Smartphone,
-  AlertCircle, CheckCircle2, Circle, Plus,
+  CheckCircle2, Circle, Plus,
   Globe2, Loader2,
 } from "lucide-react";
 
@@ -111,7 +111,7 @@ const loanProducts = [
   {
     id: "boresha",
     name: "External Guaranteed Loan (Sakonet Boresha)",
-    rate: "1.1%/mo",
+    rate: "1.0%/mo",
     max: 3,
     desc: "Guaranteed through SAKONET by one or more members from any SACCO on the platform — including your own.",
     term: "Up to 36 months",
@@ -133,12 +133,10 @@ const members = [
 const guaranteeRequestsInitial = [
   { id: 1, name: "Peter Mwenda", memberNo: "MK-06210", amount: 90000, product: "Emergency Loan", requested: "2 days ago", source: "local" },
   { id: 2, name: "Grace Wambui", memberNo: "MK-01987", amount: 60000, product: "School Fees Loan", requested: "5 hours ago", source: "local" },
-  { id: 3, name: "Naomi Chepkoech", borrowerSacco: "Baraka SACCO", amount: 45000, product: "School Fees Loan", term: "24 months", requested: "1 day ago", source: "sakonet" },
 ];
 
 const guaranteeing = [
   { id: "g1", name: "Kiplagat Ruto", amount: 90000, exposure: 90000, product: "Emergency Loan", cleared: "62%", source: "local" },
-  { id: "g2", name: "Michael Otieno", borrowerSacco: "Baraka SACCO", amount: 120000, exposure: 120000, product: "Business Loan", cleared: "30%", source: "sakonet" },
 ];
 
 const notifIcon = (type) => {
@@ -702,20 +700,21 @@ function GuarantorLocalPicker({ search, setSearch, filtered, guarantors, setGuar
 
 function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemberNo, extPhone, setExtPhone, extAmount, setExtAmount, extStatus, sendSakonetRequest, allSaccos = false }) {
   const store = useSakonet();
-  const partnerSaccos = Object.values(store.state.saccos).filter((s) => s.onboarded === true && s.status === "active" && s.code !== "MKU");
+  const partnerSaccos = Object.values(store.state.saccos).filter((s) => s.code === "BTY");
   const preferredMembers = { BTY: "BT-3390", JEN: "JN-2004", BAR: "BR-3004", GT10: "GT-1001" };
   const selectedMember = extSacco ? (store.state.membersBySacco[extSacco.code] || []).find((m) => m.memberNo === preferredMembers[extSacco.code]) || (store.state.membersBySacco[extSacco.code] || [])[0] : null;
   const disabled = !extSacco || !extMemberNo || !extAmount;
 
   useEffect(() => {
     if (!extSacco) return;
-    if (!selectedMember) {
+    const demoMember = selectedMember;
+    if (!demoMember) {
       setExtMemberNo("");
       setExtPhone("");
       return;
     }
-    setExtMemberNo(selectedMember.memberNo);
-    setExtPhone(selectedMember.phone || "");
+    setExtMemberNo(demoMember.memberNo);
+    setExtPhone(demoMember.phone || "");
   }, [extSacco?.code, selectedMember?.memberNo]);
   return (
     <div className="rounded-2xl p-4" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}>
@@ -724,7 +723,7 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
         <p className="inter" style={{ fontSize: 12.5, fontWeight: 700, color: c.sakonet }}>Via Sakonet — intersacco guarantorship</p>
       </div>
       <p className="inter" style={{ fontSize: 11.5, fontWeight: 600, color: c.text, marginBottom: 6 }}>
-        {allSaccos ? "Guarantor's SACCO — choose an onboarded SACCO" : "Guarantor's SACCO"}
+        {allSaccos ? "Guarantor's SACCO" : "Guarantor's SACCO"}
       </p>
       <div className="flex gap-2 mb-3 flex-wrap">
         {partnerSaccos.map((s) => {
@@ -742,30 +741,20 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
         })}
       </div>
 
-      {selectedMember && (
-        <div className="flex flex-col gap-3 mb-3">
-          <div>
-            <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Member number</p>
-            <input
-              value={extMemberNo}
-              onChange={(e) => setExtMemberNo(e.target.value)}
-              placeholder="Member number"
-              className="inter"
-              style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, borderRadius: 12, fontSize: 13, background: c.card, outline: "none", color: c.text }}
-            />
-          </div>
-          <div>
-            <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Phone number</p>
-            <input
-              value={extPhone}
-              onChange={(e) => setExtPhone(e.target.value)}
-              placeholder="Phone number"
-              className="inter"
-              style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, borderRadius: 12, fontSize: 13, background: c.card, outline: "none", color: c.text }}
-            />
-          </div>
-        </div>
-      )}
+      <input
+        placeholder="Guarantor's member number"
+        value={extMemberNo}
+        onChange={(e) => setExtMemberNo(e.target.value)}
+        className="inter w-full rounded-xl mb-2"
+        style={{ padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, fontSize: 13, background: c.card, outline: "none" }}
+      />
+      <input
+        placeholder="Guarantor's phone number"
+        value={extPhone}
+        onChange={(e) => setExtPhone(e.target.value)}
+        className="inter w-full rounded-xl mb-3"
+        style={{ padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, fontSize: 13, background: c.card, outline: "none" }}
+      />
 
       <input
         placeholder="Guarantee amount (KES)"
@@ -902,12 +891,6 @@ function StepReview({ product, amount, months, monthlyPayment, guarantors, cover
         ))}
       </div>
 
-      {coverPct < 100 && (
-        <div className="rounded-xl p-3 mb-4 flex gap-2" style={{ background: "#F6E4E0" }}>
-          <AlertCircle size={16} color={c.danger} style={{ flexShrink: 0, marginTop: 1 }} />
-          <p className="inter" style={{ fontSize: 12, color: c.danger }}>Add more guarantor cover before submitting — you're short by {fmt(totalNeededCover - totalCover)}.</p>
-        </div>
-      )}
     </>
   );
 }
@@ -929,13 +912,14 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const [extAmount, setExtAmount] = useState("");
   const [extStatus, setExtStatus] = useState("idle");
 
-  // Once Sakonet Boresha is selected, preselect the guarantor's SACCO so
-  // their member number and phone are pulled straight from the SACCO
-  // record instead of being entered manually.
+  // Demo shortcut: once Sakonet Boresha is selected, preselect a real
+  // onboarded demo SACCO and its demo guarantor. The presenter only needs
+  // to enter the guarantee amount; the SACCO/member details are already on
+  // the SACCO record and are displayed as read-only.
   useEffect(() => {
     if (!product?.sakonetOnly || extSacco) return;
-    const defaultSacco = store.state.saccos.BTY;
-    if (defaultSacco?.onboarded && defaultSacco.status === "active") setExtSacco(defaultSacco);
+    const demoSacco = store.state.saccos.BTY;
+    if (demoSacco?.onboarded && demoSacco.status === "active") setExtSacco(demoSacco);
   }, [product?.id, extSacco, store.state.saccos.BTY]);
 
   // A toast from an earlier step (e.g. "Sent to Mkulima SACCO for review")
@@ -1052,6 +1036,10 @@ function ApplyLoan({ onClose, onSubmitted }) {
     setProduct((p) => p ?? loanProducts.find((prod) => prod.name === currentLoan.product) ?? null);
     setAmount(currentLoan.amount);
     setMonths(currentLoan.term);
+    // The loan already exists at this stage, so jump straight to the
+    // Guarantors step instead of making the borrower click back through
+    // Product and Amount, which are already decided.
+    setStep(3);
 
     const restored = (currentLoan.guarantors || []).map((g) => {
       if (g.mode === "sakonet") {
@@ -1194,68 +1182,45 @@ function ApplyLoan({ onClose, onSubmitted }) {
         <CurrentStep {...stepProps} />
       </div>
 
+      {step < 4 && (
       <div className="px-5 pb-6 pt-3" style={{ borderTop: `1px solid ${c.border}`, background: c.bg }}>
-        {step < 4 ? (
-          <button
-            disabled={
-              (step === 1 && !product) ||
-              (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))
+        <button
+          disabled={
+            (step === 1 && !product) ||
+            (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))
+          }
+          onClick={() => {
+            if (step === 2 && amountExceedsEligibility) {
+              setToast(`Amount exceeds your eligible limit of ${fmt(eligibleAmount)}.`);
+              setTimeout(() => setToast(null), 3000);
+              return;
             }
-            onClick={() => {
-              if (step === 2 && amountExceedsEligibility) {
-                setToast(`Amount exceeds your eligible limit of ${fmt(eligibleAmount)}.`);
-                setTimeout(() => setToast(null), 3000);
-                return;
-              }
-              // The loan needs to exist for real (in the shared store) before
-              // guarantors can be attached to it — create it once, the first
-              // time the borrower leaves the amount step.
-              if (step === 2 && !loanId) {
-                const existing = getCurrentLoan();
-                const id = existing
-                  ? existing.id
-                  : store.createLoan({
-                      borrowerMemberNo: member.memberNo,
-                      borrowerSacco: "MKU",
-                      product: product.name,
-                      amount,
-                      term: months,
-                      purpose: "",
-                    });
-                setLoanId(id);
-              }
-              setStep(step + 1);
-            }}
-            className="w-full rounded-2xl inter"
-            style={{ padding: "13px 0", fontSize: 14, fontWeight: 600, background: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? c.border : c.green, color: "#fff", opacity: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? 0.7 : 1 }}
-          >
-            Continue
-          </button>
-        ) : (
-          <button
-            disabled={coverPct < 100}
-            onClick={() => {
-              store.log({
-                from: member.name,
-                to: "Mkulima SACCO",
-                text: `Loan application ${loanId} submitted with ${guarantors.length} guarantor(s) — awaiting cover confirmation.`,
-                kind: "internal",
-              });
-              // Take the borrower straight to the loan they just submitted
-              // instead of just closing back to wherever they started.
-              if (onSubmitted && loanId) {
-                onSubmitted(loanId);
-              } else {
-                onClose();
-              }
-            }}
-            className="w-full rounded-2xl inter"
-            style={{ padding: "13px 0", fontSize: 14, fontWeight: 600, background: coverPct < 100 ? c.border : c.green, color: "#fff" }}
-          >
-            Submit application
-          </button>
-        )}
+            // The loan needs to exist for real (in the shared store) before
+            // guarantors can be attached to it — create it once, the first
+            // time the borrower leaves the amount step.
+            if (step === 2 && !loanId) {
+              const existing = getCurrentLoan();
+              const id = existing
+                ? existing.id
+                : store.createLoan({
+                    borrowerMemberNo: member.memberNo,
+                    borrowerSacco: "MKU",
+                    product: product.name,
+                    amount,
+                    term: months,
+                    purpose: "",
+                  });
+              setLoanId(id);
+            }
+            setStep(step + 1);
+          }}
+          className="w-full rounded-2xl inter"
+          style={{ padding: "13px 0", fontSize: 14, fontWeight: 600, background: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? c.border : c.green, color: "#fff", opacity: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? 0.7 : 1 }}
+        >
+          Continue
+        </button>
       </div>
+      )}
 
       {toast && (
         <div className="absolute left-5 right-5 mx-auto rounded-xl px-4 py-3 flex items-center gap-2" style={{ bottom: 80, background: c.success, maxWidth: 420 }}>
