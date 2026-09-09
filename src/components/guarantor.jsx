@@ -31,7 +31,7 @@ const c = {
   panel: "#FFFFFF",
   border: "#EEE2EC",
   teal: "#C07DBB",
-  tealDeep: "#8C5A88",
+  tealDeep:"#69084e",
   tealSoft: "#F8ECF6",
   coral: "#B9502F",
   coralSoft: "#F3E1D6",

@@ -23,7 +23,7 @@ const c = {
   panel: "#FFFFFF",
   border: "#EEE2EC",
   teal: "#C07DBB",
-  tealDeep: "#8C5A88",
+  tealDeep: "#69084e",
   tealSoft: "#F8ECF6",
   gold: "#C79A5F",
   goldSoft: "#F6ECDB",
