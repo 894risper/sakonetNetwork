@@ -4,6 +4,7 @@ import {
   LayoutGrid, Building2, GitBranch, ShieldCheck, ScrollText, Plus, Wallet,
   ChevronRight, ArrowLeft, Lock, Unlock, CheckCircle2, XCircle,
   Loader2, AlertTriangle, Landmark, Bell, X, Users, ArrowUpRight, ArrowDownLeft, TrendingUp,
+  BookOpen, Percent, Layers, FileCheck2,
 } from "lucide-react";
 
 /* -----------------------------------------------------------------
@@ -118,6 +119,7 @@ function Sidebar({ nav, setNav }) {
     { id: "requests", label: "Guarantee requests", icon: GitBranch },
     { id: "loans", label: "Loans management", icon: Wallet },
     { id: "guarantees", label: "Guarantees & claims", icon: ShieldCheck },
+    { id: "loan-product", label: "Boresha loan product", icon: BookOpen },
   ];
   return (
     <div className="flex flex-col" style={{ width: 246, background: c.primaryDeep, flexShrink: 0 }}>
@@ -795,6 +797,119 @@ function GuaranteesView() {
   );
 }
 
+/* ================= BORESHA LOAN PRODUCT ================= */
+// Reference view of the Boresha product spec — static content, no
+// store dependency, so the operator has the product rules on hand
+// while working requests, loans and float elsewhere in the console.
+const BORESHA_CLASSES = [
+  { name: "Boresha 1", range: "20,000 – 50,000", term: "12–36 mo", guarantors: "1", tenure: "3 months", savings: "7,000" },
+  { name: "Boresha 2", range: "50,001 – 150,000", term: "12–48 mo", guarantors: "1–2", tenure: "6 months", savings: "17,000" },
+  { name: "Boresha 3", range: "150,001 – 300,000", term: "24–60 mo", guarantors: "1–2", tenure: "12 months", savings: "51,000" },
+  { name: "Boresha 4", range: "300,001 – 500,000", term: "36–72 mo", guarantors: "2", tenure: "24 months", savings: "101,000" },
+];
+
+const BORROWER_RULES = [
+  { label: "Membership tenure", value: "3 / 6 / 12 / 24 months, by class" },
+  { label: "Minimum core savings", value: "7,000 / 17,000 / 51,000 / 101,000, by class" },
+  { label: "Borrowing ceiling", value: "Up to 3× savings — governs actual access within the class range, not just the class floor" },
+  { label: "Guarantor gap", value: "Loan amount minus the borrower's free savings" },
+  { label: "Salary rule", value: "Repayment cannot exceed one-third of gross pay for payroll-deduction borrowers" },
+  { label: "Documentation", value: "ID/KRA PIN, 3 months' payslips or 6 months' bank statements, clean CRB clearance" },
+  { label: "Turnaround", value: "3–7 working days once the guarantor is verified" },
+];
+
+const GUARANTOR_RULES = [
+  { label: "Standing", value: "Active member, 6+ months, zero contribution arrears" },
+  { label: "Clean record", value: "Not in default, not attached to a delinquent borrower" },
+  { label: "Capacity", value: "Guarantee exposure capped at the guarantor's own savings balance — no multiplier" },
+  { label: "Spread limit", value: "No more than 20 loans guaranteed concurrently" },
+  { label: "On acceptance", value: "The guarantor's SACCO locks the guaranteed amount against their capacity, released on repayment" },
+];
+
+function RuleList({ title, icon: Icon, rules }) {
+  return (
+    <section className="rounded-2xl p-5" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Icon size={16} color={c.primary} />
+        <h3 className="disp" style={{ fontSize: 15, fontWeight: 700, color: c.ink }}>{title}</h3>
+      </div>
+      <div className="flex flex-col">
+        {rules.map((r, i) => (
+          <div key={r.label} className="flex items-start gap-4 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${c.line}` }}>
+            <span className="body" style={{ fontSize: 12, fontWeight: 700, color: c.ink, width: 150, flexShrink: 0 }}>{r.label}</span>
+            <span className="body" style={{ fontSize: 12.5, color: c.muted, lineHeight: 1.5 }}>{r.value}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LoanProductView() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="rounded-2xl p-5" style={{ background: c.primaryDeep, color: "#fff" }}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="body" style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .7, color: "#AEC3DA" }}>PRODUCT SPEC</p>
+            <h1 className="disp" style={{ fontSize: 25, fontWeight: 700, marginTop: 5 }}>SAKONET Boresha</h1>
+            <p className="body" style={{ fontSize: 12, color: "#D8E3EF", lineHeight: 1.5, marginTop: 4, maxWidth: 560 }}>
+              A four-class guarantee loan product. One guarantor closes the gap where their capacity allows; a second only joins where it doesn't — so higher classes lean on more cover, never on a bigger multiplier.
+            </p>
+          </div>
+          <div className="rounded-xl px-4 py-3 flex items-center gap-2" style={{ background: "rgba(255,255,255,0.09)", flexShrink: 0 }}>
+            <Percent size={16} color="#AEC3DA" />
+            <div>
+              <p className="mono" style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>12% p.a.</p>
+              <p className="body" style={{ fontSize: 10.5, color: "#AEC3DA" }}>Reducing balance · 1%/mo · flat across classes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Layers size={16} color={c.primary} />
+          <h3 className="disp" style={{ fontSize: 15, fontWeight: 700, color: c.ink }}>The four classes</h3>
+        </div>
+        <div className="grid grid-cols-4 gap-4">
+          {BORESHA_CLASSES.map((cls) => (
+            <div key={cls.name} className="rounded-2xl p-4" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="disp" style={{ fontSize: 14.5, fontWeight: 700, color: c.ink }}>{cls.name}</span>
+                <Pill tone={cls.guarantors === "2" ? "danger" : cls.guarantors === "1" ? "active" : "pending"}>
+                  {cls.guarantors} guarantor{cls.guarantors === "1" ? "" : "s"}
+                </Pill>
+              </div>
+              <p className="mono" style={{ fontSize: 15, fontWeight: 700, color: c.ink }}>{kes(0).slice(0, 0)}{cls.range}</p>
+              <p className="body" style={{ fontSize: 10.5, color: c.muted, marginTop: 1 }}>KES loan range</p>
+              <div className="flex flex-col gap-1.5 mt-3 pt-3" style={{ borderTop: `1px solid ${c.line}` }}>
+                <div className="flex justify-between">
+                  <span className="body" style={{ fontSize: 11, color: c.muted }}>Term</span>
+                  <span className="body" style={{ fontSize: 11.5, fontWeight: 600, color: c.ink }}>{cls.term}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="body" style={{ fontSize: 11, color: c.muted }}>Tenure needed</span>
+                  <span className="body" style={{ fontSize: 11.5, fontWeight: 600, color: c.ink }}>{cls.tenure}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="body" style={{ fontSize: 11, color: c.muted }}>Min. savings</span>
+                  <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: c.ink }}>{cls.savings}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-2 gap-5">
+        <RuleList title="Borrower eligibility" icon={FileCheck2} rules={BORROWER_RULES} />
+        <RuleList title="Guarantor eligibility" icon={ShieldCheck} rules={GUARANTOR_RULES} />
+      </div>
+    </div>
+  );
+}
+
 /* ================= SACCO NETWORK MANAGEMENT ================= */
 function SaccoNetworkAnalysis({ saccoCode }) {
   const store = useSakonet();
@@ -1002,6 +1117,7 @@ export default function SakonetOperatorConsole() {
       requests: "Guarantee requests",
       loans: "Loans management",
       guarantees: "Guarantees & claims",
+      "loan-product": "Boresha loan product",
     };
     return titles[nav] || "SAKONET Network";
   };
@@ -1027,6 +1143,7 @@ export default function SakonetOperatorConsole() {
           {nav === "requests" && <RequestsView />}
           {nav === "loans" && <LoansManagementView />}
           {nav === "guarantees" && <GuaranteesView />}
+          {nav === "loan-product" && <LoanProductView />}
         </div>
       </div>
 
