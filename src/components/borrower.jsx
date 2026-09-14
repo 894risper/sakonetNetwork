@@ -4,13 +4,8 @@ import {
   Home, Wallet, Users, Bell, ChevronRight, ChevronLeft, X, Check,
   Clock, ShieldCheck, TrendingUp, Send, FileText, Smartphone,
   CheckCircle2, Circle, Plus,
-  Globe2, Loader2,
+  Globe2, Loader2, Paperclip,
 } from "lucide-react";
-
-/* -----------------------------------------------------------------
-   MKULIMA SACCO — member app, for David Kamau (member MK-07741).
-   Now connected to the shared store via useSakonet().
------------------------------------------------------------------ */
 
 const c = {
   green: "#0E4432",
@@ -34,8 +29,6 @@ const fontStack = `
   .sora { font-family: 'Sora', sans-serif; }
   .inter { font-family: 'Inter', sans-serif; }
 
-  /* Phone display: edge-to-edge on an actual phone-sized screen,
-     the familiar bezel mockup once there's room for it. */
   .phone-shell {
     width: 100%;
     height: 100dvh;
@@ -75,16 +68,6 @@ function sakonetButtonLabel(status) {
   return (<span>Submit</span>);
 }
 
-// Maps a persisted request's stage in the store to this screen's status.
-function stageToExtStatus(stage) {
-  if (stage === "submitted") return "pending_review";
-  if (stage === "returned") return "returned";
-  if (stage === "verifying" || stage === "verified") return "verifying";
-  if (stage === "notified" || stage === "accepted" || stage === "locked") return "verified";
-  if (stage === "rejected") return "failed";
-  return "idle";
-}
-
 function guarantorStatusLabel(status) {
   if (status === "submitted") return "Awaiting Mkulima SACCO review";
   if (status === "verifying") return "Verifying";
@@ -94,7 +77,6 @@ function guarantorStatusLabel(status) {
   return status;
 }
 
-// ---------- Data ----------
 const member = {
   name: "David Kamau",
   memberNo: "MK-07741",
@@ -115,9 +97,24 @@ const loanProducts = [
     max: 3,
     desc: "Guaranteed through SAKONET by one or more members from any SACCO on the platform — including your own.",
     term: "Up to 36 months",
-    sakonetOnly: true, // guarantors are picked straight from the SAKONET network, no "This SACCO / Another SACCO" toggle
+    sakonetOnly: true,
   },
 ];
+
+const BASE_DOCUMENTS = [
+  { id: "id", label: "National ID", hint: "Front and back, or a single clear scan", fileName: "national_id_david_kamau.pdf" },
+  { id: "kra", label: "KRA PIN certificate", hint: "", fileName: "kra_pin_certificate.pdf" },
+];
+
+const INCOME_PROOF_OPTIONS = [
+  { id: "payslips", label: "3 months' payslips", hint: "If you're in salaried / payroll-deduction employment", fileName: "payslips_last_3_months.pdf" },
+  { id: "statements", label: "6 months' bank statements", hint: "If you're self-employed", fileName: "bank_statements_last_6_months.pdf" },
+];
+
+const PRODUCT_EXTRA_DOCUMENT = {
+  school: { id: "fee_invoice", label: "Fee structure / invoice", hint: "From the institution, showing the amount due", fileName: "school_fee_invoice.pdf" },
+  development: { id: "purpose_proof", label: "Proof of purpose", hint: "Quotation, title deed, or business permit", fileName: "development_purpose_proof.pdf" },
+};
 
 const members = [
   { name: "Otieno Kamau", memberNo: "MK-01123", shares: 91000 },
@@ -152,7 +149,6 @@ const notifIcon = (type) => {
   return map[type] || <Bell size={16} />;
 };
 
-// ---------- Small building blocks ----------
 function TopBar({ title, onBack }) {
   return (
     <div className="flex items-center gap-2 px-5 pt-5 pb-3" style={{ background: c.bg }}>
@@ -232,7 +228,6 @@ function NavBar({ tab, setTab, unreadCount }) {
   );
 }
 
-// ---------- HOME ----------
 function HomeScreen({ goLoans, goGuarantor, goNotifications, onContinueLoan }) {
   const store = useSakonet();
   const myLoans = Object.values(store.state.loans).filter((l) => l.borrowerMemberNo === member.memberNo);
@@ -334,7 +329,6 @@ function HomeScreen({ goLoans, goGuarantor, goNotifications, onContinueLoan }) {
   );
 }
 
-// ---------- LOANS ----------
 function LoansHome({ onApply, onOpenLoan, onContinueLoan }) {
   const store = useSakonet();
   const maxEligible = member.savings * member.eligibility;
@@ -409,11 +403,6 @@ function loanStageIndex(stage) {
   return map[stage] || 1;
 }
 
-// Single source of truth for the loan status pill so every screen (home,
-// loans list, detail) agrees on what to show. The borrower only ever sees
-// three states — Review, Secured, Disbursed — even though the backend
-// tracks "committee" and "approved" as two separate internal stages once
-// Beauty SACCO confirms the guarantee and it's with Mkulima SACCO.
 function loanStatusInfo(loan, coverPct) {
   if (loan.stage === "rejected") return { tone: "danger", label: "Declined" };
   if (loan.stage === "disbursed") {
@@ -426,10 +415,6 @@ function loanStatusInfo(loan, coverPct) {
   return { tone: "pending", label: "Under review" };
 }
 
-// Subtext + progress bar for a loan list card. Only the "guarantors" stage
-// is actually about guarantor cover — once a loan has moved on to
-// "Secured" (committee/approved) it's just waiting on Mkulima SACCO to
-// disburse, so the guarantor-cover line is stale info and gets replaced.
 function loanProgressInfo(loan, coverPct) {
   if (loan.stage === "disbursed") {
     const text = loan.repayment === "repaid" ? "Fully repaid" : loan.repayment === "arrears" ? "In arrears" : "Disbursed · repayment in progress";
@@ -447,8 +432,7 @@ function loanProgressInfo(loan, coverPct) {
 function LoanDetail({ loan, onBack, onContinueLoan }) {
   const store = useSakonet();
   const { state } = store;
-  
-  // Get live loan data from store
+
   const liveLoan = state.loans[loan.id] || loan;
   const stages = ["Review", "Secured", "Disbursed"];
   const isDisbursed = liveLoan.stage === "disbursed";
@@ -459,7 +443,7 @@ function LoanDetail({ loan, onBack, onContinueLoan }) {
   const covered = Math.min(liveLoan.amount, savingsCover + guarantorCover);
   const coverPct = Math.round((covered / liveLoan.amount) * 100);
   const incomplete = liveLoan.stage === "guarantors" && coverPct < 100;
-  
+
   return (
     <div className="flex-1 flex flex-col" style={{ background: c.bg }}>
       <TopBar title={liveLoan.product} onBack={onBack} />
@@ -499,6 +483,23 @@ function LoanDetail({ loan, onBack, onContinueLoan }) {
             );
           })}
         </div>
+
+        {liveLoan.documents && Object.keys(liveLoan.documents).length > 0 && (
+          <>
+            <h3 className="sora" style={{ fontSize: 13.5, fontWeight: 700, color: c.text, marginBottom: 10 }}>Documents submitted</h3>
+            <div className="flex flex-col gap-2 mb-6">
+              {Object.values(liveLoan.documents).map((d) => (
+                <div key={d.id} className="rounded-xl p-3 flex items-center gap-2" style={{ background: c.sage, border: `1px solid ${c.border}` }}>
+                  <Paperclip size={14} color={c.greenLight} />
+                  <div style={{ minWidth: 0 }}>
+                    <p className="inter" style={{ fontSize: 12.5, fontWeight: 600, color: c.text }}>{d.label}</p>
+                    <p className="inter" style={{ fontSize: 11, color: c.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.fileName}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {(guarantors.length > 0 || savingsCover > 0) && (
           <>
@@ -553,7 +554,6 @@ function LoanDetail({ loan, onBack, onContinueLoan }) {
   );
 }
 
-// ---------- APPLY LOAN FLOW ----------
 function StepProduct({ product, setProduct }) {
   return (
     <>
@@ -655,6 +655,89 @@ function StepAmount({ amount, setAmount, months, setMonths, product, monthlyInte
           <span className="sora" style={{ fontSize: 14, fontWeight: 700, color: c.green }}>{fmt(monthlyPayment)}</span>
         </div>
       </div>
+    </>
+  );
+}
+
+function DocumentSlot({ doc, attached }) {
+  return (
+    <div className="rounded-2xl p-4 flex items-center justify-between gap-3" style={{ background: c.card, border: `1.5px solid ${attached ? c.green : c.border}` }}>
+      <div style={{ minWidth: 0 }}>
+        <div className="flex items-center gap-2">
+          <p className="inter" style={{ fontSize: 13.5, fontWeight: 700, color: c.text }}>{doc.label}</p>
+          {attached && <CheckCircle2 size={15} color={c.success} />}
+        </div>
+        {doc.hint && <p className="inter" style={{ fontSize: 11.5, color: c.muted, marginTop: 2 }}>{doc.hint}</p>}
+        {attached && (
+          <p className="inter mt-2 flex items-center gap-1" style={{ fontSize: 11.5, color: c.greenLight, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Paperclip size={12} /> {attached.fileName}
+          </p>
+        )}
+      </div>
+      {attached && <Pill tone="active">On file</Pill>}
+    </div>
+  );
+}
+
+function StepDocuments({ product, documents, setDocuments, incomeProofType, setIncomeProofType }) {
+  const extraDoc = product ? PRODUCT_EXTRA_DOCUMENT[product.id] : null;
+
+  useEffect(() => {
+    setDocuments((prev) => {
+      const next = { ...prev };
+      BASE_DOCUMENTS.forEach((d) => { next[d.id] = d; });
+      if (extraDoc) next[extraDoc.id] = extraDoc;
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!incomeProofType) return;
+    const doc = INCOME_PROOF_OPTIONS.find((o) => o.id === incomeProofType);
+    setDocuments((prev) => ({ ...prev, [incomeProofType]: doc }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomeProofType]);
+
+  return (
+    <>
+      <h2 className="sora" style={{ fontSize: 19, fontWeight: 700, color: c.text, marginBottom: 4 }}>Supporting documents</h2>
+      <p className="inter" style={{ fontSize: 12.5, color: c.muted, marginBottom: 16 }}>
+        These stay with Mkulima SACCO for verification — separate from anything sent to a guarantor.
+      </p>
+
+      {BASE_DOCUMENTS.map((doc) => (
+        <div key={doc.id} className="mb-3">
+          <DocumentSlot doc={doc} attached={documents[doc.id]} />
+        </div>
+      ))}
+
+      <p className="inter" style={{ fontSize: 12.5, fontWeight: 600, color: c.text, marginBottom: 8, marginTop: 4 }}>Proof of income</p>
+      <div className="flex gap-2 mb-3">
+        {INCOME_PROOF_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setIncomeProofType(opt.id)}
+            className="flex-1 rounded-xl inter text-left"
+            style={{ padding: "10px 12px", fontSize: 11.5, fontWeight: 600, background: incomeProofType === opt.id ? c.green : c.card, color: incomeProofType === opt.id ? "#fff" : c.text, border: `1px solid ${incomeProofType === opt.id ? c.green : c.border}` }}
+          >
+            {opt.label}
+            <span className="block" style={{ fontWeight: 400, fontSize: 10.5, marginTop: 2, opacity: 0.85 }}>{opt.hint}</span>
+          </button>
+        ))}
+      </div>
+      {incomeProofType && (
+        <div className="mb-3">
+          <DocumentSlot doc={INCOME_PROOF_OPTIONS.find((o) => o.id === incomeProofType)} attached={documents[incomeProofType]} />
+        </div>
+      )}
+
+      {extraDoc && (
+        <div className="mb-3">
+          <p className="inter" style={{ fontSize: 12.5, fontWeight: 600, color: c.text, marginBottom: 8 }}>Additional document for {product.name}</p>
+          <DocumentSlot doc={extraDoc} attached={documents[extraDoc.id]} />
+        </div>
+      )}
     </>
   );
 }
@@ -762,7 +845,6 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
         inputMode="decimal"
         onChange={(e) => {
           let v = e.target.value.replace(/[^0-9.]/g, "");
-          // allow only one decimal point
           const firstDot = v.indexOf(".");
           if (firstDot !== -1) {
             v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
@@ -864,13 +946,15 @@ function StepGuarantors(props) {
   );
 }
 
-function StepReview({ product, amount, months, monthlyPayment, guarantors, coverPct, totalNeededCover, totalCover, savingsCover }) {
+function StepReview({ product, amount, months, monthlyPayment, guarantors, coverPct, totalNeededCover, totalCover, savingsCover, documents, incomeProofType }) {
   const pendingCover = Math.max(0, totalNeededCover - totalCover);
+  const incomeProofLabel = INCOME_PROOF_OPTIONS.find((o) => o.id === incomeProofType)?.label;
   const rows = [
     ["Product", product?.name || "—"],
     ["Amount", fmt(amount)],
     ["Term", `${months} months`],
     ["Est. monthly repayment", fmt(monthlyPayment)],
+    ["Documents attached", `${Object.keys(documents || {}).length} document(s)${incomeProofLabel ? ` · income proof: ${incomeProofLabel}` : ""}`],
     ["Your savings applied", fmt(savingsCover)],
     ["Secured cover", fmt(totalCover)],
     ["Pending guarantee cover", pendingCover > 0 ? fmt(pendingCover) : "None"],
@@ -901,6 +985,8 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const [product, setProduct] = useState(null);
   const [amount, setAmount] = useState(150000);
   const [months, setMonths] = useState(12);
+  const [documents, setDocuments] = useState({});
+  const [incomeProofType, setIncomeProofType] = useState(null);
   const [guarantors, setGuarantors] = useState([]);
   const [loanId, setLoanId] = useState(null);
   const [search, setSearch] = useState("");
@@ -912,20 +998,12 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const [extAmount, setExtAmount] = useState("");
   const [extStatus, setExtStatus] = useState("idle");
 
-  // Demo shortcut: once Sakonet Boresha is selected, preselect a real
-  // onboarded demo SACCO and its demo guarantor. The presenter only needs
-  // to enter the guarantee amount; the SACCO/member details are already on
-  // the SACCO record and are displayed as read-only.
   useEffect(() => {
     if (!product?.sakonetOnly || extSacco) return;
     const demoSacco = store.state.saccos.BTY;
     if (demoSacco?.onboarded && demoSacco.status === "active") setExtSacco(demoSacco);
   }, [product?.id, extSacco, store.state.saccos.BTY]);
 
-  // A toast from an earlier step (e.g. "Sent to Mkulima SACCO for review")
-  // shouldn't still be sitting on screen once the borrower has moved on —
-  // it was overlapping the Review step's submit button like a stray
-  // second button. Clear it whenever the step changes.
   useEffect(() => {
     setToast(null);
   }, [step]);
@@ -936,10 +1014,19 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const rate = product ? Number.parseFloat(product.rate) / 100 : 0.01;
   const monthlyInterest = amount * rate;
   const monthlyPayment = Math.round(amount / months + monthlyInterest);
-  // Cover starts with the borrower's own savings (same rule the store
-  // uses in LOAN/CHECK_COVERAGE), then adds guarantors who have actually
-  // confirmed. Requests still in flight show up in the list below so the
-  // borrower can see what's pending, but they don't count as cover yet.
+
+  const requiredDocuments = product
+    ? [
+        ...BASE_DOCUMENTS,
+        incomeProofType ? INCOME_PROOF_OPTIONS.find((o) => o.id === incomeProofType) : null,
+        PRODUCT_EXTRA_DOCUMENT[product.id] || null,
+      ].filter(Boolean)
+    : [];
+  const documentsComplete =
+    Boolean(incomeProofType) &&
+    requiredDocuments.length > 0 &&
+    requiredDocuments.every((d) => documents[d.id]);
+
   const totalNeededCover = amount;
   const savingsCover = Math.min(member.savings, totalNeededCover);
   const guarantorCover = guarantors
@@ -953,14 +1040,9 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const getCurrentLoan = () =>
     Object.values(store.state.loans).find(l => l.borrowerMemberNo === "MK-07741" && l.stage === "guarantors");
 
-  // Polls the store for a request's stage and updates just that one
-  // guarantor's row in the list — used both right after submitting and
-  // when resuming any in-flight requests on mount. Deliberately doesn't
-  // touch the "add a guarantor" form fields, so the borrower is free to
-  // start adding another guarantor while this one is still in flight.
   const watchRequest = (requestId, guarantorSaccoCode) => {
     let attempts = 0;
-    const maxAttempts = 600; // generous — the first hold is a manual SACCO review, not an automatic step
+    const maxAttempts = 600;
 
     const interval = setInterval(() => {
       const req = store.state.requests[requestId];
@@ -971,7 +1053,7 @@ function ApplyLoan({ onClose, onSubmitted }) {
         return;
       }
 
-      if (req.stage === "submitted") return; // waiting on Mkulima SACCO admin — no timeout while this holds
+      if (req.stage === "submitted") return;
 
       if (req.stage === "returned") {
         clearInterval(interval);
@@ -984,9 +1066,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
       }
 
       if (req.stage === "notified") {
-        // Deliberately doesn't clearInterval here — the guarantor SACCO
-        // still has to confirm the member's decision before this settles,
-        // so polling needs to keep running to catch that later stage.
         const guarantorMember = store.state.membersBySacco[guarantorSaccoCode]?.find(m => m.memberNo === req.guarantorMemberNo);
         setGuarantors(prev => prev.some(g => g.memberNo === req.guarantorMemberNo)
           ? prev.map(g => g.memberNo === req.guarantorMemberNo ? { ...g, status: "delivered" } : g)
@@ -1025,9 +1104,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
     }, 500);
   };
 
-  // Resume in-progress work if the borrower left this screen mid-flow —
-  // the store already persists to localStorage, so on remount we just
-  // need to rehydrate the local UI from it instead of starting blank.
   useEffect(() => {
     const currentLoan = getCurrentLoan();
     if (!currentLoan) return;
@@ -1036,10 +1112,9 @@ function ApplyLoan({ onClose, onSubmitted }) {
     setProduct((p) => p ?? loanProducts.find((prod) => prod.name === currentLoan.product) ?? null);
     setAmount(currentLoan.amount);
     setMonths(currentLoan.term);
-    // The loan already exists at this stage, so jump straight to the
-    // Guarantors step instead of making the borrower click back through
-    // Product and Amount, which are already decided.
-    setStep(3);
+    if (currentLoan.documents) setDocuments(currentLoan.documents);
+    if (currentLoan.incomeProofType) setIncomeProofType(currentLoan.incomeProofType);
+    setStep(4);
 
     const restored = (currentLoan.guarantors || []).map((g) => {
       if (g.mode === "sakonet") {
@@ -1055,9 +1130,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (restored.length) setGuarantors(restored);
 
-    // Resume watching every guarantor request still in flight for this
-    // loan — not just one — so nothing silently stops updating just
-    // because the borrower had more than one request out at a time.
     const inFlightRequests = Object.values(store.state.requests).filter(
       (r) => r.loanId === currentLoan.id && ["submitted", "returned", "network_routed", "sacco_verified", "notified", "member_responded", "awaiting_sacco_confirmation"].includes(r.stage)
     );
@@ -1076,10 +1148,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
       return;
     }
 
-    // A guarantor from the borrower's own SACCO never has to travel over
-    // Sakonet — accept them immediately, the same as the local picker,
-    // instead of running them through the cross-SACCO relay and its
-    // multi-step wait.
     if (extSacco.code === "MKU") {
       if (extMemberNo === member.memberNo) {
         setToast("You can't guarantee your own loan.");
@@ -1121,10 +1189,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
       return;
     }
 
-    // Reflect this pledge right away — it already exists on the loan in
-    // the store (sendGuarantorRequest adds it there), so the Review step
-    // shouldn't show "None added" while it's in flight. It won't count
-    // toward cover until its status becomes "accepted".
     const guarantorMember = store.state.membersBySacco[extSacco.code]?.find(m => m.memberNo === extMemberNo);
     setGuarantors(prev => prev.some(g => g.memberNo === extMemberNo) ? prev : [...prev, {
       memberNo: extMemberNo,
@@ -1139,9 +1203,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
     setTimeout(() => setToast(null), 2500);
     watchRequest(result.requestId, extSacco.code);
 
-    // Clear the form right away — its progress now lives in the
-    // guarantors list above, not on this button — so another guarantor
-    // (from this SACCO or another) can be queued up immediately.
     setExtSacco(null);
     setExtMemberNo("");
     setExtPhone("");
@@ -1149,17 +1210,18 @@ function ApplyLoan({ onClose, onSubmitted }) {
     setExtStatus("idle");
   };
 
-  const steps = ["Product", "Amount", "Guarantors", "Review"];
+  const steps = ["Product", "Amount", "Documents", "Guarantors", "Review"];
 
   const stepProps = {
     product, setProduct, amount, setAmount, months, setMonths, monthlyInterest, monthlyPayment,
+    documents, setDocuments, incomeProofType, setIncomeProofType,
     guarantors, setGuarantors, search, setSearch, filtered,
     extSacco, setExtSacco, extMemberNo, setExtMemberNo,
     extPhone, setExtPhone, extAmount, setExtAmount, extStatus, sendSakonetRequest,
     totalCover, totalNeededCover, coverPct, savingsCover, loanId, store,
   };
 
-  const stepComponents = { 1: StepProduct, 2: StepAmount, 3: StepGuarantors, 4: StepReview };
+  const stepComponents = { 1: StepProduct, 2: StepAmount, 3: StepDocuments, 4: StepGuarantors, 5: StepReview };
   const CurrentStep = stepComponents[step];
 
   return (
@@ -1168,7 +1230,7 @@ function ApplyLoan({ onClose, onSubmitted }) {
         <button onClick={step === 1 ? onClose : () => setStep(step - 1)} className="p-1 -ml-1">
           <ChevronLeft size={22} color={c.text} />
         </button>
-        <p className="inter" style={{ fontSize: 12, color: c.muted, fontWeight: 600 }}>Step {step} of 4 — {steps[step - 1]}</p>
+        <p className="inter" style={{ fontSize: 12, color: c.muted, fontWeight: 600 }}>Step {step} of {steps.length} — {steps[step - 1]}</p>
         <button onClick={onClose} className="p-1 -mr-1"><X size={19} color={c.muted} /></button>
       </div>
 
@@ -1182,12 +1244,13 @@ function ApplyLoan({ onClose, onSubmitted }) {
         <CurrentStep {...stepProps} />
       </div>
 
-      {step < 4 && (
+      {step < steps.length && (
       <div className="px-5 pb-6 pt-3" style={{ borderTop: `1px solid ${c.border}`, background: c.bg }}>
         <button
           disabled={
             (step === 1 && !product) ||
-            (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))
+            (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
+            (step === 3 && !documentsComplete)
           }
           onClick={() => {
             if (step === 2 && amountExceedsEligibility) {
@@ -1195,10 +1258,12 @@ function ApplyLoan({ onClose, onSubmitted }) {
               setTimeout(() => setToast(null), 3000);
               return;
             }
-            // The loan needs to exist for real (in the shared store) before
-            // guarantors can be attached to it — create it once, the first
-            // time the borrower leaves the amount step.
-            if (step === 2 && !loanId) {
+            if (step === 3 && !documentsComplete) {
+              setToast("Choose payslips or bank statements before continuing.");
+              setTimeout(() => setToast(null), 3000);
+              return;
+            }
+            if (step === 3 && !loanId) {
               const existing = getCurrentLoan();
               const id = existing
                 ? existing.id
@@ -1209,13 +1274,28 @@ function ApplyLoan({ onClose, onSubmitted }) {
                     amount,
                     term: months,
                     purpose: "",
+                    documents,
+                    incomeProofType,
                   });
               setLoanId(id);
             }
             setStep(step + 1);
           }}
           className="w-full rounded-2xl inter"
-          style={{ padding: "13px 0", fontSize: 14, fontWeight: 600, background: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? c.border : c.green, color: "#fff", opacity: ((step === 1 && !product) || (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0))) ? 0.7 : 1 }}
+          style={{
+            padding: "13px 0", fontSize: 14, fontWeight: 600,
+            background: (
+              (step === 1 && !product) ||
+              (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
+              (step === 3 && !documentsComplete)
+            ) ? c.border : c.green,
+            color: "#fff",
+            opacity: (
+              (step === 1 && !product) ||
+              (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
+              (step === 3 && !documentsComplete)
+            ) ? 0.7 : 1,
+          }}
         >
           Continue
         </button>
@@ -1232,7 +1312,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
   );
 }
 
-// ---------- GUARANTOR ----------
 function GuarantorScreen({ requests, setRequests }) {
   const [expanded, setExpanded] = useState(null);
   const [toast, setToast] = useState(null);
@@ -1353,7 +1432,6 @@ function GuarantorScreen({ requests, setRequests }) {
   );
 }
 
-// ---------- NOTIFICATIONS ----------
 function NotificationsScreen() {
   const store = useSakonet();
   const items = store.state.notifications[member.memberNo] || [];
@@ -1391,7 +1469,6 @@ function NotificationsScreen() {
   );
 }
 
-// ---------- APP SHELL ----------
 export default function MkulimaMemberApp() {
   const store = useSakonet();
   const [tab, setTab] = useState("home");
