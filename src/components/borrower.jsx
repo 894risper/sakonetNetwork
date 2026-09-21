@@ -65,11 +65,12 @@ function sakonetButtonLabel(status) {
   if (status === "failed") {
     return (<><X size={14} /> Failed</>);
   }
-  return (<span>Submit</span>);
+  return null;
 }
 
 function guarantorStatusLabel(status) {
-  if (status === "submitted") return "Awaiting Mkulima SACCO review";
+  if (status === "staged") return "Ready to submit";
+  if (status === "submitted") return "Awaiting review";
   if (status === "verifying") return "Verifying";
   if (status === "delivered") return "Awaiting their response";
   if (status === "returned") return "Returned — needs resend";
@@ -781,15 +782,32 @@ function GuarantorLocalPicker({ search, setSearch, filtered, guarantors, setGuar
   );
 }
 
-function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemberNo, extPhone, setExtPhone, extAmount, setExtAmount, extStatus, sendSakonetRequest, allSaccos = false }) {
+// Guarantor flow, matching the real SAKONET design:
+//   1) "Check Guarantor" — a stateless pre-check (identity + capacity).
+//      Nothing is created yet; the result can be re-checked freely.
+//   2) "Add guarantor" — only appears once the pre-check succeeds.
+//      It stages the guarantor in the form. Nothing is sent yet.
+//   3) The formal request is created when the borrower presses Submit
+//      on the Review step.
+// Fields are pre-filled with a demo guarantor for a fast happy-path
+// demo, but stay fully editable — change any field to show the sad
+// paths (member not found, or insufficient capacity).
+function GuarantorSakonetPicker({
+  extSacco, setExtSacco, extMemberNo, setExtMemberNo, extPhone, setExtPhone,
+  extAmount, setExtAmount, extStatus, stageSakonetGuarantor,
+  precheckResult, setPrecheckResult, checkGuarantor, allSaccos = false,
+}) {
   const store = useSakonet();
   const partnerSaccos = Object.values(store.state.saccos).filter((s) => s.code === "BTY");
   const preferredMembers = { BTY: "BT-3390", JEN: "JN-2004", BAR: "BR-3004", GT10: "GT-1001" };
   const selectedMember = extSacco ? (store.state.membersBySacco[extSacco.code] || []).find((m) => m.memberNo === preferredMembers[extSacco.code]) || (store.state.membersBySacco[extSacco.code] || [])[0] : null;
-  const disabled = !extSacco || !extMemberNo || !extAmount;
+  const canCheck = Boolean(extSacco && extMemberNo && extAmount);
+  const isConfirmed = Boolean(precheckResult?.found && precheckResult?.sufficientCapacity);
+  const isBusy = extStatus === "pending_review" || extStatus === "verifying";
 
   useEffect(() => {
     if (!extSacco) return;
+    setPrecheckResult(null);
     const demoMember = selectedMember;
     if (!demoMember) {
       setExtMemberNo("");
@@ -798,13 +816,21 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
     }
     setExtMemberNo(demoMember.memberNo);
     setExtPhone(demoMember.phone || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extSacco?.code, selectedMember?.memberNo]);
+
+  const editText = (setter) => (e) => {
+    setPrecheckResult(null);
+    setter(e.target.value);
+  };
+
   return (
     <div className="rounded-2xl p-4" style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Globe2 size={15} color={c.sakonet} />
         <p className="inter" style={{ fontSize: 12.5, fontWeight: 700, color: c.sakonet }}>Via Sakonet — intersacco guarantorship</p>
       </div>
+
       <p className="inter" style={{ fontSize: 11.5, fontWeight: 600, color: c.text, marginBottom: 6 }}>
         {allSaccos ? "Guarantor's SACCO" : "Guarantor's SACCO"}
       </p>
@@ -824,21 +850,25 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
         })}
       </div>
 
+      <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Member number</p>
       <input
         placeholder="Guarantor's member number"
         value={extMemberNo}
-        onChange={(e) => setExtMemberNo(e.target.value)}
+        onChange={editText(setExtMemberNo)}
         className="inter w-full rounded-xl mb-2"
         style={{ padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, fontSize: 13, background: c.card, outline: "none" }}
       />
+
+      <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Phone number</p>
       <input
         placeholder="Guarantor's phone number"
         value={extPhone}
-        onChange={(e) => setExtPhone(e.target.value)}
+        onChange={editText(setExtPhone)}
         className="inter w-full rounded-xl mb-3"
         style={{ padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, fontSize: 13, background: c.card, outline: "none" }}
       />
 
+      <p className="inter" style={{ fontSize: 11, fontWeight: 600, color: c.text, marginBottom: 4 }}>Guarantee amount (KES)</p>
       <input
         placeholder="Guarantee amount (KES)"
         value={extAmount}
@@ -849,23 +879,51 @@ function GuarantorSakonetPicker({ extSacco, setExtSacco, extMemberNo, setExtMemb
           if (firstDot !== -1) {
             v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
           }
+          setPrecheckResult(null);
           setExtAmount(v);
         }}
         className="inter w-full rounded-xl mb-3"
         style={{ padding: "10px 14px", border: `1px solid ${c.sakonetBorder}`, fontSize: 13, background: c.card, outline: "none" }}
       />
 
+      {precheckResult && precheckResult.found === false && (
+        <div className="rounded-xl p-3 mb-3 flex items-center gap-2" style={{ background: "#F6E4E0", border: "1px solid #E9BDB4" }}>
+          <X size={14} color={c.danger} />
+          <p className="inter" style={{ fontSize: 11.5, color: c.danger, fontWeight: 600 }}>
+            No member found with that number at {extSacco?.name || "that SACCO"}.
+          </p>
+        </div>
+      )}
+
+      {precheckResult && precheckResult.found && !precheckResult.sufficientCapacity && (
+        <div className="rounded-xl p-3 mb-3 flex items-center gap-2" style={{ background: "#F6E4E0", border: "1px solid #E9BDB4" }}>
+          <X size={14} color={c.danger} />
+          <p className="inter" style={{ fontSize: 11.5, color: c.danger, fontWeight: 600 }}>
+            This guarantor doesn't have enough available capacity for this amount. Lower the amount or choose a different guarantor.
+          </p>
+        </div>
+      )}
+
+      {isConfirmed && (
+        <div className="rounded-xl p-3 mb-3 flex items-center gap-2" style={{ background: "#E4F0E8", border: "1px solid #BBD8C4" }}>
+          <Check size={14} color={c.success} />
+          <p className="inter" style={{ fontSize: 11.5, color: c.success, fontWeight: 700 }}>
+            Guarantor confirmed — {precheckResult.maskedName}, {extSacco?.name}
+          </p>
+        </div>
+      )}
+
       <button
-        onClick={sendSakonetRequest}
-        disabled={disabled || extStatus === "pending_review" || extStatus === "verifying"}
+        onClick={isConfirmed ? stageSakonetGuarantor : checkGuarantor}
+        disabled={!canCheck || isBusy}
         className="w-full rounded-xl inter flex items-center justify-center gap-2"
         style={{
           padding: "10px 0", fontSize: 13, fontWeight: 600, color: "#fff",
-          background: disabled ? c.sakonetBorder : c.sakonet,
-          opacity: (extStatus === "pending_review" || extStatus === "verifying") ? 0.85 : 1,
+          background: !canCheck ? c.sakonetBorder : (isConfirmed ? c.sakonet : c.text),
+          opacity: isBusy ? 0.85 : 1,
         }}
       >
-        {sakonetButtonLabel(extStatus)}
+        {isBusy ? sakonetButtonLabel(extStatus) : (isConfirmed ? "Add guarantor" : "Check Guarantor")}
       </button>
     </div>
   );
@@ -883,7 +941,7 @@ function StepGuarantors(props) {
       </h2>
       <p className="inter" style={{ fontSize: 12.5, color: c.muted, marginBottom: 16 }}>
         {isBoresha
-          ? "Pick guarantors from any SACCO onboarded on the Sakonet platform, including your own. You can add as many as you need until the loan is fully covered."
+          ? "Pick guarantors from any SACCO onboarded on the Sakonet platform, including your own. You can add as many as you need. Requests are sent when you submit on the last step."
           : "Select guarantors from Mkulima SACCO. External guarantors are available only for Sakonet Boresha loans."}
       </p>
 
@@ -929,9 +987,11 @@ function StepGuarantors(props) {
                   )}
                 </p>
               </div>
-              <button onClick={() => setGuarantors(guarantors.filter((x) => x.memberNo !== g.memberNo))}>
-                <X size={16} color={c.muted} />
-              </button>
+              {(!g.status || g.status === "staged" || g.status === "accepted") && (
+                <button onClick={() => setGuarantors(guarantors.filter((x) => x.memberNo !== g.memberNo))}>
+                  <X size={16} color={c.muted} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -949,6 +1009,7 @@ function StepGuarantors(props) {
 function StepReview({ product, amount, months, monthlyPayment, guarantors, coverPct, totalNeededCover, totalCover, savingsCover, documents, incomeProofType }) {
   const pendingCover = Math.max(0, totalNeededCover - totalCover);
   const incomeProofLabel = INCOME_PROOF_OPTIONS.find((o) => o.id === incomeProofType)?.label;
+  const stagedRequests = guarantors.filter((g) => g.status === "staged").length;
   const rows = [
     ["Product", product?.name || "—"],
     ["Amount", fmt(amount)],
@@ -959,12 +1020,15 @@ function StepReview({ product, amount, months, monthlyPayment, guarantors, cover
     ["Secured cover", fmt(totalCover)],
     ["Pending guarantee cover", pendingCover > 0 ? fmt(pendingCover) : "None"],
     ["Guarantors", guarantors.length ? guarantors.map((g) => g.name).join(", ") : "None added"],
+    ["Requests sent on submit", String(stagedRequests)],
     ["Cover status", coverPct >= 100 ? "Fully covered" : `${coverPct}% secured`],
   ];
   return (
     <>
       <h2 className="sora" style={{ fontSize: 19, fontWeight: 700, color: c.text, marginBottom: 4 }}>Review & submit</h2>
-      <p className="inter" style={{ fontSize: 12.5, color: c.muted, marginBottom: 16 }}>Check the details before sending this to your guarantors and the credit committee.</p>
+      <p className="inter" style={{ fontSize: 12.5, color: c.muted, marginBottom: 16 }}>
+        Check the details, then submit. Guarantor requests go to their SACCOs only when you press Submit.
+      </p>
 
       <div className="rounded-2xl p-4 mb-4" style={{ background: c.card, border: `1px solid ${c.border}` }}>
         {rows.map(([k, v]) => (
@@ -997,6 +1061,7 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const [extPhone, setExtPhone] = useState("");
   const [extAmount, setExtAmount] = useState("");
   const [extStatus, setExtStatus] = useState("idle");
+  const [precheckResult, setPrecheckResult] = useState(null);
 
   useEffect(() => {
     if (!product?.sakonetOnly || extSacco) return;
@@ -1036,6 +1101,10 @@ function ApplyLoan({ onClose, onSubmitted }) {
   const coverPct = Math.min(100, Math.round((totalCover / totalNeededCover) * 100));
 
   const filtered = members.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()) && !guarantors.some((g) => g.memberNo === m.memberNo));
+
+  const stagedGuarantors = guarantors.filter((g) => g.status === "staged" && g.source === "sakonet");
+  const stagedCount = stagedGuarantors.length;
+  const canSubmit = stagedCount > 0 || coverPct >= 100;
 
   const getCurrentLoan = () =>
     Object.values(store.state.loans).find(l => l.borrowerMemberNo === "MK-07741" && l.stage === "guarantors");
@@ -1137,77 +1206,84 @@ function ApplyLoan({ onClose, onSubmitted }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sendSakonetRequest = () => {
+  // Stateless pre-check — no request is created here. Can be re-run
+  // freely as the borrower edits the SACCO, member number, or amount.
+  const checkGuarantor = () => {
     if (!extSacco || !extMemberNo || !extAmount) return;
+    const result = store.precheckGuarantor(extSacco.code, extMemberNo, Number(extAmount));
+    setPrecheckResult(result);
+  };
 
-    setToast(null);
-
-    const currentLoan = getCurrentLoan();
-    if (!currentLoan) {
-      setToast("No active loan found. Please apply for a loan first.");
-      return;
-    }
-
-    if (extSacco.code === "MKU") {
-      if (extMemberNo === member.memberNo) {
-        setToast("You can't guarantee your own loan.");
-        return;
-      }
-      const localMember = store.state.membersBySacco.MKU?.find((m) => m.memberNo === extMemberNo);
-      if (!localMember) {
-        setToast("No member found with that number at Mkulima SACCO.");
-        return;
-      }
-      store.addLocalGuarantor(currentLoan.id, { memberNo: extMemberNo, name: localMember.name, amount: Number(extAmount) });
-      setGuarantors(prev => prev.some(g => g.memberNo === extMemberNo) ? prev : [...prev, {
-        memberNo: extMemberNo,
-        name: localMember.name,
-        shares: localMember.shares,
-        coverAmount: Number(extAmount),
-        source: "local",
-        status: "accepted",
-      }]);
-      setToast(`${localMember.name} added as guarantor.`);
-      setTimeout(() => setToast(null), 2500);
-      setExtSacco(null);
-      setExtMemberNo("");
-      setExtPhone("");
-      setExtAmount("");
-      setExtStatus("idle");
-      return;
-    }
-
-    const result = store.sendGuarantorRequest({
-      loanId: currentLoan.id,
-      guarantorSaccoCode: extSacco.code,
-      guarantorMemberNo: extMemberNo,
-      amount: Number(extAmount)
-    });
-
-    if (!result.ok) {
-      setToast(result.error || "Failed to send request.");
-      return;
-    }
-
-    const guarantorMember = store.state.membersBySacco[extSacco.code]?.find(m => m.memberNo === extMemberNo);
-    setGuarantors(prev => prev.some(g => g.memberNo === extMemberNo) ? prev : [...prev, {
-      memberNo: extMemberNo,
-      name: guarantorMember?.name || extMemberNo,
-      sacco: extSacco.name,
-      coverAmount: Number(extAmount),
-      source: "sakonet",
-      status: "submitted",
-    }]);
-
-    setToast("Sent to Mkulima SACCO for review.");
-    setTimeout(() => setToast(null), 2500);
-    watchRequest(result.requestId, extSacco.code);
-
+  const resetExtForm = () => {
     setExtSacco(null);
     setExtMemberNo("");
     setExtPhone("");
     setExtAmount("");
     setExtStatus("idle");
+    setPrecheckResult(null);
+  };
+
+  // Stages a pre-checked guarantor in the form. Nothing is sent to the
+  // guarantor's SACCO until the borrower presses Submit on the Review step.
+  const stageSakonetGuarantor = () => {
+    if (!extSacco || !extMemberNo || !extAmount) return;
+
+    setToast(null);
+
+    if (extMemberNo === member.memberNo) {
+      setToast("You can't guarantee your own loan.");
+      return;
+    }
+
+    const guarantorMember = store.state.membersBySacco[extSacco.code]?.find((m) => m.memberNo === extMemberNo);
+    setGuarantors((prev) =>
+      prev.some((g) => g.memberNo === extMemberNo)
+        ? prev
+        : [...prev, {
+            memberNo: extMemberNo,
+            name: guarantorMember?.name || precheckResult?.maskedName || extMemberNo,
+            sacco: extSacco.name,
+            saccoCode: extSacco.code,
+            coverAmount: Number(extAmount),
+            source: "sakonet",
+            status: "staged",
+          }]
+    );
+
+    setToast("Guarantor added. The request is sent when you submit.");
+    setTimeout(() => setToast(null), 2500);
+    resetExtForm();
+  };
+
+  // Sends every staged guarantor request, starts the status watchers,
+  // then hands control back to the app.
+  const submitApplication = () => {
+    const activeLoanId = getCurrentLoan()?.id || loanId;
+    if (!activeLoanId) {
+      setToast("No active loan found. Please apply for a loan first.");
+      return;
+    }
+
+    let failed = false;
+    stagedGuarantors.forEach((g) => {
+      if (failed) return;
+      const result = store.sendGuarantorRequest({
+        loanId: activeLoanId,
+        guarantorSaccoCode: g.saccoCode,
+        guarantorMemberNo: g.memberNo,
+        amount: g.coverAmount,
+      });
+      if (!result.ok) {
+        failed = true;
+        setToast(result.error || `Failed to send request for ${g.name}.`);
+        return;
+      }
+      setGuarantors((prev) => prev.map((x) => (x.memberNo === g.memberNo ? { ...x, status: "submitted" } : x)));
+      watchRequest(result.requestId, g.saccoCode);
+    });
+
+    if (failed) return;
+    onSubmitted?.(activeLoanId);
   };
 
   const steps = ["Product", "Amount", "Documents", "Guarantors", "Review"];
@@ -1217,12 +1293,18 @@ function ApplyLoan({ onClose, onSubmitted }) {
     documents, setDocuments, incomeProofType, setIncomeProofType,
     guarantors, setGuarantors, search, setSearch, filtered,
     extSacco, setExtSacco, extMemberNo, setExtMemberNo,
-    extPhone, setExtPhone, extAmount, setExtAmount, extStatus, sendSakonetRequest,
+    extPhone, setExtPhone, extAmount, setExtAmount, extStatus, stageSakonetGuarantor,
+    precheckResult, setPrecheckResult, checkGuarantor,
     totalCover, totalNeededCover, coverPct, savingsCover, loanId, store,
   };
 
   const stepComponents = { 1: StepProduct, 2: StepAmount, 3: StepDocuments, 4: StepGuarantors, 5: StepReview };
   const CurrentStep = stepComponents[step];
+
+  const continueDisabled =
+    (step === 1 && !product) ||
+    (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
+    (step === 3 && !documentsComplete);
 
   return (
     <div className="absolute inset-0 flex flex-col" style={{ background: c.bg, zIndex: 20 }}>
@@ -1244,62 +1326,72 @@ function ApplyLoan({ onClose, onSubmitted }) {
         <CurrentStep {...stepProps} />
       </div>
 
-      {step < steps.length && (
-      <div className="px-5 pb-6 pt-3" style={{ borderTop: `1px solid ${c.border}`, background: c.bg }}>
-        <button
-          disabled={
-            (step === 1 && !product) ||
-            (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
-            (step === 3 && !documentsComplete)
-          }
-          onClick={() => {
-            if (step === 2 && amountExceedsEligibility) {
-              setToast(`Amount exceeds your eligible limit of ${fmt(eligibleAmount)}.`);
-              setTimeout(() => setToast(null), 3000);
-              return;
-            }
-            if (step === 3 && !documentsComplete) {
-              setToast("Choose payslips or bank statements before continuing.");
-              setTimeout(() => setToast(null), 3000);
-              return;
-            }
-            if (step === 3 && !loanId) {
-              const existing = getCurrentLoan();
-              const id = existing
-                ? existing.id
-                : store.createLoan({
-                    borrowerMemberNo: member.memberNo,
-                    borrowerSacco: "MKU",
-                    product: product.name,
-                    amount,
-                    term: months,
-                    purpose: "",
-                    documents,
-                    incomeProofType,
-                  });
-              setLoanId(id);
-            }
-            setStep(step + 1);
-          }}
-          className="w-full rounded-2xl inter"
-          style={{
-            padding: "13px 0", fontSize: 14, fontWeight: 600,
-            background: (
-              (step === 1 && !product) ||
-              (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
-              (step === 3 && !documentsComplete)
-            ) ? c.border : c.green,
-            color: "#fff",
-            opacity: (
-              (step === 1 && !product) ||
-              (step === 2 && (!product || amountExceedsEligibility || amountBelowMinimum || Number(amount) <= 0)) ||
-              (step === 3 && !documentsComplete)
-            ) ? 0.7 : 1,
-          }}
-        >
-          Continue
-        </button>
-      </div>
+      {step < steps.length ? (
+        <div className="px-5 pb-6 pt-3" style={{ borderTop: `1px solid ${c.border}`, background: c.bg }}>
+          <button
+            disabled={continueDisabled}
+            onClick={() => {
+              if (step === 2 && amountExceedsEligibility) {
+                setToast(`Amount exceeds your eligible limit of ${fmt(eligibleAmount)}.`);
+                setTimeout(() => setToast(null), 3000);
+                return;
+              }
+              if (step === 3 && !documentsComplete) {
+                setToast("Choose payslips or bank statements before continuing.");
+                setTimeout(() => setToast(null), 3000);
+                return;
+              }
+              if (step === 3 && !loanId) {
+                const existing = getCurrentLoan();
+                const id = existing
+                  ? existing.id
+                  : store.createLoan({
+                      borrowerMemberNo: member.memberNo,
+                      borrowerSacco: "MKU",
+                      product: product.name,
+                      amount,
+                      term: months,
+                      purpose: "",
+                      documents,
+                      incomeProofType,
+                    });
+                setLoanId(id);
+              }
+              setStep(step + 1);
+            }}
+            className="w-full rounded-2xl inter"
+            style={{
+              padding: "13px 0", fontSize: 14, fontWeight: 600,
+              background: continueDisabled ? c.border : c.green,
+              color: "#fff",
+              opacity: continueDisabled ? 0.7 : 1,
+            }}
+          >
+            Continue
+          </button>
+        </div>
+      ) : (
+        <div className="px-5 pb-6 pt-3" style={{ borderTop: `1px solid ${c.border}`, background: c.bg }}>
+          <button
+            onClick={submitApplication}
+            disabled={!canSubmit}
+            className="w-full rounded-2xl inter"
+            style={{
+              padding: "13px 0", fontSize: 14, fontWeight: 600, color: "#fff",
+              background: canSubmit ? c.green : c.border,
+              opacity: canSubmit ? 1 : 0.7,
+            }}
+          >
+            {stagedCount > 0
+              ? `Submit and send ${stagedCount} guarantor request${stagedCount > 1 ? "s" : ""}`
+              : "Submit application"}
+          </button>
+          {!canSubmit && (
+            <p className="inter" style={{ fontSize: 11.5, color: c.muted, textAlign: "center", marginTop: 8 }}>
+              Add at least one guarantor before submitting.
+            </p>
+          )}
+        </div>
       )}
 
       {toast && (

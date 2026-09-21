@@ -5,6 +5,7 @@ import {
   ChevronRight, ArrowLeft, Lock, Unlock, CheckCircle2, XCircle,
   Loader2, AlertTriangle, Landmark, Bell, X, Users, ArrowUpRight, ArrowDownLeft, TrendingUp,
   BookOpen, Percent, Layers, FileCheck2,
+  ArrowLeftRight, Scale,
 } from "lucide-react";
 
 /* -----------------------------------------------------------------
@@ -42,6 +43,35 @@ const fonts = `
 `;
 
 const kes = (n) => "KES " + Number(n).toLocaleString("en-KE");
+
+// ---------- Reciprocity measures ----------
+// Nothing is stored. Every figure is derived from state.guarantees, so it
+// can never drift out of sync with the ledger. Only live guarantees count:
+// "performing" and "claimed" still tie up the guarantor SACCO's float,
+// while "released" and "settled" no longer do.
+const LIVE_GUARANTEE_STATUSES = ["performing", "claimed"];
+
+function computeReciprocity(state, saccoCode) {
+  const live = Object.values(state.guarantees || {}).filter(
+    (g) => LIVE_GUARANTEE_STATUSES.includes(g.status) && g.borrowerSacco !== g.guarantorSacco
+  );
+  const sum = (list) => list.reduce((total, g) => total + Number(g.amount || 0), 0);
+
+  // Guarantees this SACCO's borrowers receive from other SACCOs' members.
+  const inward = sum(live.filter((g) => g.borrowerSacco === saccoCode));
+  // Guarantees this SACCO's members give to borrowers at other SACCOs.
+  const outward = sum(live.filter((g) => g.guarantorSacco === saccoCode));
+
+  return {
+    inward,
+    outward,
+    net: outward - inward,
+    // Outward ÷ inward. null when inward is 0, because the ratio is undefined.
+    rr: inward > 0 ? outward / inward : null,
+  };
+}
+
+const formatRR = (rr) => (rr === null || rr === undefined ? "—" : rr.toFixed(2));
 
 // ---------- Small building blocks ----------
 function Pill({ tone = "neutral", children }) {
@@ -119,6 +149,7 @@ function Sidebar({ nav, setNav }) {
     { id: "requests", label: "Guarantee requests", icon: GitBranch },
     { id: "loans", label: "Loans management", icon: Wallet },
     { id: "guarantees", label: "Guarantees & claims", icon: ShieldCheck },
+    { id: "reciprocity", label: "Reciprocity", icon: ArrowLeftRight },
     { id: "loan-product", label: "Boresha loan product", icon: BookOpen },
   ];
   return (
@@ -334,6 +365,98 @@ function OnboardModal({ onClose, onOpenNetwork }) {
   );
 }
 
+/* ================= RECIPROCITY ================= */
+// Four measures per SACCO, derived from live guarantees:
+// inward, outward, net position and reciprocity ratio.
+function ReciprocityPanel({ saccoCode }) {
+  const { state } = useSakonet();
+  const r = computeReciprocity(state, saccoCode);
+
+  const cells = [
+    ["Inward exposure", kes(r.inward), "Received from other SACCOs", c.gold],
+    ["Outward exposure", kes(r.outward), "Given to other SACCOs", c.primary],
+    ["Net position", kes(r.net), "Outward − inward", c.ink],
+    ["Reciprocity ratio", formatRR(r.rr), "Outward ÷ inward", c.ink],
+  ];
+
+  return (
+    <section className="rounded-2xl p-5 mb-5" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="disp" style={{ fontSize: 17, fontWeight: 700, color: c.ink }}>Guarantee reciprocity</h2>
+          <p className="body" style={{ fontSize: 11.5, color: c.muted, marginTop: 3 }}>
+            Live guarantees this SACCO receives from, and gives to, other SACCOs on the network.
+          </p>
+        </div>
+        <ArrowLeftRight size={18} color={c.primary} />
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {cells.map(([label, value, note, color]) => (
+          <div key={label} className="rounded-xl p-3" style={{ background: c.paper }}>
+            <p className="body" style={{ fontSize: 10.5, color: c.muted }}>{label}</p>
+            <p className="mono" style={{ fontSize: 17, fontWeight: 700, color, marginTop: 5 }}>{value}</p>
+            <p className="body" style={{ fontSize: 10.5, color: c.muted, marginTop: 4 }}>{note}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// Operator page: one row per SACCO, side by side.
+function ReciprocityView() {
+  const { state } = useSakonet();
+  const saccos = Object.values(state.saccos).filter((s) => s.onboarded === true);
+  const rows = saccos.map((s) => ({ sacco: s, ...computeReciprocity(state, s.code) }));
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="rounded-2xl p-5" style={{ background: c.primaryDeep, color: "#fff" }}>
+        <p className="body" style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .7, color: "#AEC3DA" }}>NETWORK BALANCE</p>
+        <h1 className="disp" style={{ fontSize: 25, fontWeight: 700, marginTop: 5 }}>Guarantee reciprocity</h1>
+        <p className="body" style={{ fontSize: 12, color: "#D8E3EF", lineHeight: 1.5, marginTop: 4, maxWidth: 620 }}>
+          How much guarantee cover each SACCO receives from the network compared with how much it gives back.
+        </p>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${c.line}` }}>
+        <table className="w-full body" style={{ fontSize: 12.5, borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: c.paper, borderBottom: `1px solid ${c.line}` }}>
+              {["SACCO", "Inward exposure", "Outward exposure", "Net position", "Reciprocity ratio"].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontWeight: 700, color: c.muted, fontSize: 11.5 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={row.sacco.code} style={{ background: i % 2 ? c.paper : c.panel, borderBottom: `1px solid ${c.line}` }}>
+                <td style={{ padding: "11px 14px", fontWeight: 700, color: c.ink }}>{row.sacco.name}</td>
+                <td style={{ padding: "11px 14px", color: c.gold }} className="mono">{kes(row.inward)}</td>
+                <td style={{ padding: "11px 14px", color: c.primary }} className="mono">{kes(row.outward)}</td>
+                <td style={{ padding: "11px 14px", color: c.ink }} className="mono">{kes(row.net)}</td>
+                <td style={{ padding: "11px 14px", color: c.ink, fontWeight: 700 }} className="mono">{formatRR(row.rr)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <RuleList
+        title="How the numbers are worked out"
+        icon={Scale}
+        rules={[
+          { label: "Inward exposure", value: "Guarantees this SACCO's borrowers receive from members of other SACCOs." },
+          { label: "Outward exposure", value: "Guarantees this SACCO's members give to borrowers at other SACCOs." },
+          { label: "Net position", value: "Outward minus inward. Negative means the SACCO receives more cover than it gives." },
+          { label: "Reciprocity ratio", value: "Outward divided by inward. 1.00 is balanced and 0.00 means it has never guaranteed anyone. Shown as — when inward exposure is zero, because the ratio can't be calculated." },
+          { label: "What counts", value: "Guarantees that are performing or claimed. Released and settled guarantees are excluded." },
+        ]}
+      />
+    </div>
+  );
+}
+
 function SaccoDetail({ sacco, onBack }) {
   const store = useSakonet();
   const { state, authenticateSaccoApi } = store;
@@ -370,6 +493,8 @@ function SaccoDetail({ sacco, onBack }) {
         <KpiCard label="Committed" value={kes(sacco.locked)} icon={Lock} tone={c.gold} />
         <KpiCard label="Available" value={kes(available)} icon={Unlock} tone={c.success} />
       </div>
+
+      <ReciprocityPanel saccoCode={sacco.code} />
 
       <div className="rounded-2xl p-5 mb-5" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
         <div className="flex items-center justify-between mb-3">
@@ -922,9 +1047,6 @@ function SaccoNetworkAnalysis({ saccoCode }) {
   const declined = touching.filter((r) => ["rejected", "sacco_confirmed_declined", "sacco_confirmation_received_declined", "declined", "sacco_rejected"].includes(r.stage));
   const outgoingValue = outgoing.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   const incomingValue = incoming.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-  const guaranteeExposure = Object.values(state.guarantees)
-    .filter((g) => g.guarantorSacco === saccoCode && ["performing", "claimed"].includes(g.status))
-    .reduce((sum, g) => sum + Number(g.amount || 0), 0);
   const sacco = state.saccos[saccoCode];
 
   return (
@@ -936,11 +1058,12 @@ function SaccoNetworkAnalysis({ saccoCode }) {
         <KpiCard label="Active cross-SACCO guarantees" value={Object.values(state.guarantees).filter((g) => g.status === "performing" && (g.borrowerSacco === saccoCode || g.guarantorSacco === saccoCode)).length} icon={ShieldCheck} tone={c.success} />
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-2 gap-4 mb-5">
         <KpiCard label="Committed float" value={kes(sacco.locked)} icon={Lock} tone={c.gold} />
         <KpiCard label="Uncommitted float" value={kes(sacco.totalFloat - sacco.locked)} icon={Unlock} tone={c.success} />
-        <KpiCard label="Guarantee exposure" value={kes(guaranteeExposure)} icon={Wallet} />
       </div>
+
+      <ReciprocityPanel saccoCode={saccoCode} />
 
       <section className="rounded-2xl p-5 mb-5" style={{ background: c.panel, border: `1px solid ${c.line}` }}>
         <div className="flex items-center justify-between mb-4">
@@ -1117,6 +1240,7 @@ export default function SakonetOperatorConsole() {
       requests: "Guarantee requests",
       loans: "Loans management",
       guarantees: "Guarantees & claims",
+      reciprocity: "Reciprocity",
       "loan-product": "Boresha loan product",
     };
     return titles[nav] || "SAKONET Network";
@@ -1143,6 +1267,7 @@ export default function SakonetOperatorConsole() {
           {nav === "requests" && <RequestsView />}
           {nav === "loans" && <LoansManagementView />}
           {nav === "guarantees" && <GuaranteesView />}
+          {nav === "reciprocity" && <ReciprocityView />}
           {nav === "loan-product" && <LoanProductView />}
         </div>
       </div>

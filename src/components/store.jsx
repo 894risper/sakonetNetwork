@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from "react";
 
-const STORAGE_KEY = "sakonet_store_v12"; // bumped — shape changed (sessionAuth, dropped JEN/BAR/GT10)
+const STORAGE_KEY = "sakonet_store_v12";
 
 const now = () => new Date().toLocaleTimeString("en-KE", { hour12: false });
 
@@ -37,20 +37,11 @@ const defaultInitialState = {
     "BT-3390": [],
   },
 
-  // Persisted per-SACCO login flags for SaccoNetworkLogin (and anywhere
-  // else that gates a view behind the SACCO network PIN). Lives in the
-  // same store as everything else, so it rides along with the existing
-  // localStorage persistence below — log in once, stay logged in across
-  // navigation and page refresh until explicitly logged out.
   sessionAuth: {},
 
   auditLog: [],
 };
 
-// Shared by both the initial page load and the cross-tab live-sync
-// handler below — always merge onto defaultInitialState so a stored
-// blob from an older shape (or a partial write) never drops a key the
-// rest of the app expects to exist.
 function mergeWithDefaults(parsed) {
   return {
     ...defaultInitialState,
@@ -78,6 +69,21 @@ function getInitialState() {
 
 function findMember(state, saccoCode, memberNo) {
   return (state.membersBySacco[saccoCode] || []).find((m) => m.memberNo === memberNo);
+}
+
+// Masks a member's name for display in a pre-check result — enough for
+// the borrower to visually recognize the right person, without handing
+// back a full name to someone who hasn't proven any relationship yet.
+function maskName(name) {
+  if (!name) return "";
+  const parts = String(name).trim().split(/\s+/);
+  return parts
+    .map((p, i) => {
+      if (parts.length === 1) return p[0] + "*".repeat(Math.max(p.length - 1, 1));
+      if (i === parts.length - 1 && p.length > 2) return p[0] + "*".repeat(Math.max(p.length - 2, 1)) + p.slice(-1);
+      return p[0] + "*".repeat(Math.max(p.length - 1, 1));
+    })
+    .join(" ");
 }
 
 function makeNotificationId() {
@@ -207,13 +213,6 @@ const reducerHandlers = {
   "FLOAT/RELEASE": (state, { saccoCode, amount }) =>
     updateSacco(state, saccoCode, (sacco) => ({ ...sacco, locked: Math.max(0, sacco.locked - amount) })),
 
-  // Debits the guarantor SACCO when a claim is settled: releases the
-  // committed portion (locked) AND removes it from that SACCO's own
-  // totalFloat, since the money is actually leaving their book to pay
-  // out the claim. Paired with FLOAT/CREDIT below, which is what
-  // actually receives that money on the borrower SACCO's side — without
-  // that pairing this looked like money vanishing from the network
-  // instead of just changing hands.
   "FLOAT/SETTLE": (state, { saccoCode, amount }) =>
     updateSacco(state, saccoCode, (sacco) => ({
       ...sacco,
@@ -221,12 +220,6 @@ const reducerHandlers = {
       totalFloat: sacco.totalFloat - amount,
     })),
 
-  // Credits a SACCO's totalFloat only (never touches locked) — used to
-  // land the settled amount on the borrower SACCO's side when a claim
-  // is settled, so the transfer is a wash across the network: one
-  // SACCO's totalFloat goes down by exactly what the other's goes up
-  // by, and once nothing is locked anywhere the network's available
-  // float is back to its full original total.
   "FLOAT/CREDIT": (state, { saccoCode, amount }) =>
     updateSacco(state, saccoCode, (sacco) => ({ ...sacco, totalFloat: sacco.totalFloat + amount })),
 
@@ -256,7 +249,6 @@ const reducerHandlers = {
     return { ...state, notifications: { ...state.notifications, [memberNo]: list } };
   },
 
-  // ---- Persistent SACCO network login ----
   "AUTH/LOGIN": (state, { saccoCode }) => ({
     ...state,
     sessionAuth: { ...state.sessionAuth, [saccoCode]: true },
@@ -267,10 +259,6 @@ const reducerHandlers = {
     return { ...state, sessionAuth: next };
   },
 
-  // Cross-tab live sync — see the `storage` event listener in
-  // SakonetProvider below. Replaces the entire state wholesale with
-  // whatever the other tab just wrote to localStorage, so every open
-  // window converges on the same data without a manual refresh.
   "STATE/REPLACE": (_state, { nextState }) => nextState,
 
   "AUDIT": (state, { entry }) => ({ ...state, auditLog: [...state.auditLog, { ...entry, time: now() }] }),
@@ -295,13 +283,6 @@ export function SakonetProvider({ children }) {
     }
   }, [state]);
 
-  // Cross-tab / cross-window live sync. The browser only fires the
-  // `storage` event in OTHER tabs/windows on the same origin when
-  // localStorage changes — never in the tab that made the change — so
-  // this can't loop back on itself. Whenever another open window
-  // (David's app, Phoebe's app, Mkulima staff, Beauty staff, ...) writes
-  // a new state, this tab picks it up immediately and re-renders with
-  // it, no manual refresh needed.
   useEffect(() => {
     function handleStorage(e) {
       if (e.key !== STORAGE_KEY || !e.newValue) return;
@@ -320,10 +301,6 @@ export function SakonetProvider({ children }) {
   const notify = useCallback((memberNo, notification) => dispatch({ type: "NOTIFY", memberNo, notification }), []);
   const markRead = useCallback((memberNo) => dispatch({ type: "NOTIFY/READ_ALL", memberNo }), []);
 
-  // ---- authenticateSaccoApi ----
-  // Pure check against the SACCO's code + network PIN. Used for one-off
-  // API-auth tests (e.g. the "Test SACCO API authentication" panel) —
-  // it does NOT persist a login on its own.
   const authenticateSaccoApi = useCallback((saccoCode, pin) => {
     const sacco = state.saccos[saccoCode];
     if (!sacco || !sacco.onboarded || sacco.status !== "active") return { ok: false, error: "This SACCO is not active on SAKONET yet." };
@@ -335,11 +312,6 @@ export function SakonetProvider({ children }) {
     return { ok: true, sacco };
   }, [state, log]);
 
-  // ---- loginSaccoNetwork ----
-  // Same PIN check, but on success it also persists the login into store
-  // state (and therefore localStorage), so SaccoNetworkLogin doesn't
-  // re-ask for the PIN after navigating away and back, or after a
-  // refresh — only an explicit logoutSaccoNetwork clears it.
   const loginSaccoNetwork = useCallback((saccoCode, pin) => {
     const result = authenticateSaccoApi(saccoCode, pin);
     if (result.ok) dispatch({ type: "AUTH/LOGIN", saccoCode });
@@ -350,22 +322,20 @@ export function SakonetProvider({ children }) {
     dispatch({ type: "AUTH/LOGOUT", saccoCode });
   }, []);
 
-  // ---- createLoan ----
-  const createLoan = useCallback(({ borrowerMemberNo, borrowerSacco, product, amount, term, purpose }) => {
+  const createLoan = useCallback(({ borrowerMemberNo, borrowerSacco, product, amount, term, purpose, documents, incomeProofType }) => {
     const id = makeLoanId();
     const borrower = findMember(state, borrowerSacco, borrowerMemberNo);
     const borrowerSaccoName = state.saccos[borrowerSacco]?.name || borrowerSacco;
 
     dispatch({
       type: "LOAN/CREATE",
-      loan: { id, borrowerMemberNo, borrowerSacco, product, amount, term, purpose, stage: "guarantors", repayment: "pending", guarantors: [] },
+      loan: { id, borrowerMemberNo, borrowerSacco, product, amount, term, purpose, documents: documents || {}, incomeProofType: incomeProofType || null, stage: "guarantors", repayment: "pending", guarantors: [] },
     });
 
     log({ from: borrower?.name || "Borrower", to: borrowerSaccoName, text: `Loan application ${id} started — ${product}, KES ${amount.toLocaleString("en-KE")}.`, kind: "internal" });
     return id;
   }, [state, log]);
 
-  // ---- addLocalGuarantor ----
   const addLocalGuarantor = useCallback((loanId, guarantor) => {
     const loan = state.loans[loanId];
     if (!loan) return;
@@ -374,7 +344,30 @@ export function SakonetProvider({ children }) {
     setTimeout(() => dispatch({ type: "LOAN/ADVANCE_TO_APPROVED", loanId }), 900);
   }, [state]);
 
-  // ---- sendGuarantorRequest ----
+  // ---- precheckGuarantor ----
+  // The pre-check lookup: a stateless, automatic system-to-system check
+  // run before any formal guarantee request exists. It never dispatches
+  // anything — nothing is created, logged, or stored — so it can be
+  // repeated freely as the borrower corrects details. It answers a
+  // bounded question (does this member exist, can they cover this
+  // amount) and returns only a masked name, never the real name, never
+  // a raw capacity figure — the guarantor hasn't been contacted or
+  // consented to anything at this point.
+  const precheckGuarantor = useCallback((guarantorSaccoCode, guarantorMemberNo, amount) => {
+    const sacco = state.saccos[guarantorSaccoCode];
+    if (!sacco || !sacco.onboarded || sacco.status !== "active") {
+      return { found: false };
+    }
+    const member = findMember(state, guarantorSaccoCode, guarantorMemberNo);
+    if (!member) return { found: false };
+
+    const capacity = Number(member.capacity ?? member.shares ?? 0);
+    const requested = Number(amount || 0);
+    const sufficientCapacity = requested > 0 && capacity >= requested;
+
+    return { found: true, sufficientCapacity, maskedName: maskName(member.name) };
+  }, [state]);
+
   const sendGuarantorRequest = useCallback(({ loanId, guarantorSaccoCode, guarantorMemberNo, amount }) => {
     const loan = state.loans[loanId];
     if (!loan) return { ok: false, error: "Loan not found." };
@@ -407,7 +400,6 @@ export function SakonetProvider({ children }) {
     return { ok: true, requestId };
   }, [state, log]);
 
-  // ---- reviewBeautyIncomingRequest ----
   const reviewBeautyIncomingRequest = useCallback((requestId, decision, reason = "") => {
     const req = state.requests[requestId];
     if (!req || req.stage !== "beauty_sacco_review") return { ok: false, error: "Request is not awaiting Beauty SACCO staff review." };
@@ -443,7 +435,6 @@ export function SakonetProvider({ children }) {
     return { ok: true };
   }, [state, log, notify]);
 
-  // ---- reviewGuarantorRequest ----
   const reviewGuarantorRequest = useCallback((requestId, decision, reason = "") => {
     const req = state.requests[requestId];
     if (!req || req.stage !== "submitted") return { ok: false, error: "Request is not awaiting Mkulima staff review." };
@@ -472,7 +463,6 @@ export function SakonetProvider({ children }) {
     return { ok: true };
   }, [state, log, notify]);
 
-  // ---- respondToRequest ----
   const respondToRequest = useCallback((requestId, decision, pin) => {
     const req = state.requests[requestId];
     if (!req || req.stage !== "notified") return { ok: false, error: "This request is not awaiting the member's decision." };
@@ -567,17 +557,6 @@ export function SakonetProvider({ children }) {
     });
   }, [state, log, notify]);
 
-  // ---- settleClaim ----
-  // Settling a claim moves money, not just clears a flag: the guarantor
-  // SACCO's committed amount is released AND actually leaves their float
-  // (FLOAT/SETTLE), and — this is the part that was missing — that same
-  // amount lands on the borrower SACCO's float (FLOAT/CREDIT), since the
-  // payout is what makes the borrower SACCO whole after the default.
-  // Net effect on the network: total float is unchanged (it's a
-  // transfer, not a loss), the guarantor SACCO's own float goes down by
-  // the settled amount, the borrower SACCO's goes up by the same
-  // amount, and once nothing is left locked anywhere, network-wide
-  // available float is back to the full total.
   const settleClaim = useCallback((guaranteeId) => {
     const g = state.guarantees[guaranteeId];
     if (!g) return;
@@ -632,6 +611,7 @@ export function SakonetProvider({ children }) {
     logoutSaccoNetwork,
     createLoan,
     addLocalGuarantor,
+    precheckGuarantor,
     sendGuarantorRequest,
     reviewGuarantorRequest,
     reviewBeautyIncomingRequest,
@@ -643,7 +623,7 @@ export function SakonetProvider({ children }) {
     notify,
     markRead,
     log,
-  }), [state, authenticateSaccoApi, loginSaccoNetwork, logoutSaccoNetwork, createLoan, addLocalGuarantor, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, disburseLoan, simulateDefault, settleClaim, simulateRepaid, notify, markRead, log]);
+  }), [state, authenticateSaccoApi, loginSaccoNetwork, logoutSaccoNetwork, createLoan, addLocalGuarantor, precheckGuarantor, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, disburseLoan, simulateDefault, settleClaim, simulateRepaid, notify, markRead, log]);
 
   return <SakonetContext.Provider value={value}>{children}</SakonetContext.Provider>;
 }
