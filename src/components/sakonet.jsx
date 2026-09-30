@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useSakonet } from "./store";
+import SakonetChatbot from "./SakonetChatbot";
+import { SaccoSupport, OperatorSupport } from "./Support";
 import {
   LayoutGrid, Building2, GitBranch, ShieldCheck, ScrollText, Plus, Wallet,
   ChevronRight, ArrowLeft, Lock, Unlock, CheckCircle2, XCircle,
   Loader2, AlertTriangle, Landmark, Bell, X, Users, ArrowUpRight, ArrowDownLeft, TrendingUp,
   BookOpen, Percent, Layers, FileCheck2,
-  Sparkles, MessageCircle, Send, LogOut,
+  Sparkles, MessageCircle, Send, LogOut, LifeBuoy,
 } from "lucide-react";
 
 /* -----------------------------------------------------------------
@@ -439,6 +441,7 @@ function Sidebar({ nav, setNav }) {
     { id: "loans", label: "Loans management", icon: Wallet },
     { id: "guarantees", label: "Guarantees & claims", icon: ShieldCheck },
     { id: "predictive", label: "Predictive analysis", icon: Sparkles },
+    { id: "support", label: "Customer service", icon: LifeBuoy },
     { id: "loan-product", label: "Boresha loan product", icon: BookOpen },
   ];
   return (
@@ -485,6 +488,7 @@ function DashboardView({ setNav }) {
   const activeGuarantees = guarantees.filter((g) => g.status === "performing").length;
   const claims = Object.values(state.claims);
   const settledVolume = claims.filter((cl) => cl.status === "settled").reduce((s, cl) => s + cl.amount, 0);
+  const openTickets = Object.values(state.tickets || {}).filter((t) => t.status === "open" || t.status === "in_progress").length;
   const requests = Object.values(state.requests);
   const pendingRequests = requests.filter((r) => !["member_notified_by_mkulima", "rejected"].includes(r.stage)).length;
   const needingTopUp = saccos.filter((sc) => {
@@ -501,10 +505,11 @@ function DashboardView({ setNav }) {
         <KpiCard label="Committed float" value={kes(lockedFloat)} icon={Lock} tone={c.gold} />
         <KpiCard label="Available float" value={kes(availableFloat)} icon={Unlock} tone={c.success} />
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <KpiCard label="Active guarantees" value={activeGuarantees} icon={ShieldCheck} />
         <KpiCard label="Guarantees claimed" value={claims.length} icon={AlertTriangle} tone={c.danger} />
         <KpiCard label="Settled volume" value={kes(settledVolume)} icon={CheckCircle2} tone={c.success} />
+        <KpiCard label="Open support tickets" value={openTickets} icon={LifeBuoy} tone={c.gold} />
       </div>
 
       <button
@@ -1599,6 +1604,7 @@ function SaccoSidebar({ sacco, tab, setTab, onBack, onLogout }) {
     { id: "requests", label: "Guarantee requests", icon: GitBranch },
     { id: "forecast", label: "Predictive analysis", icon: Sparkles },
     { id: "assistant", label: "Assistant", icon: MessageCircle },
+    { id: "support", label: "Support", icon: LifeBuoy },
   ];
   return (
     <div className="flex flex-col" style={{ width: 246, background: c.primaryDeep, flexShrink: 0 }}>
@@ -1649,6 +1655,7 @@ export function SaccoNetworkLogin({ saccoCode, autoOpen = false }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [tab, setTab] = useState("overview");
+  const [chatOpen, setChatOpen] = useState(false);
   const sacco = state.saccos[saccoCode];
   const loggedIn = autoOpen || Boolean(state.sessionAuth?.[saccoCode]);
 
@@ -1692,6 +1699,7 @@ export function SaccoNetworkLogin({ saccoCode, autoOpen = false }) {
     requests: "Guarantee requests",
     forecast: "Predictive analysis",
     assistant: "Assistant",
+    support: "Support",
   };
   const forecast = store.getClfForecast(saccoCode);
   const needsTopUp = forecast.ready && forecast.suggestedTopUp > 0;
@@ -1700,6 +1708,30 @@ export function SaccoNetworkLogin({ saccoCode, autoOpen = false }) {
     <div className="min-h-screen w-full flex" style={{ background: c.paper, fontFamily: "'Public Sans', sans-serif" }}>
       <style>{fonts}</style>
       <SaccoSidebar sacco={sacco} tab={tab} setTab={setTab} onBack={goToDashboard} onLogout={() => store.logoutSaccoNetwork(saccoCode)} />
+
+      {/* Beauty-only floating chatbot */}
+      {saccoCode === "BTY" && (
+        chatOpen ? (
+          <SakonetChatbot sacco={sacco.name} onClose={() => setChatOpen(false)} />
+        ) : (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="fixed flex items-center gap-2 rounded-full shadow-lg body"
+            style={{
+              bottom: 20,
+              right: 20,
+              zIndex: 40,
+              padding: "12px 18px",
+              background: c.primaryDeep,
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
+            <MessageCircle size={17} /> Ask SAKONET
+          </button>
+        )
+      )}
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center justify-between px-8 py-5" style={{ borderBottom: `1px solid ${c.line}` }}>
@@ -1748,6 +1780,7 @@ export function SaccoNetworkLogin({ saccoCode, autoOpen = false }) {
           )}
 
           {tab === "assistant" && <SaccoAssistant saccoCode={saccoCode} />}
+          {tab === "support" && <SaccoSupport saccoCode={saccoCode} />}
         </div>
       </div>
     </div>
@@ -1767,6 +1800,7 @@ export default function SakonetOperatorConsole() {
       loans: "Loans management",
       guarantees: "Guarantees & claims",
       predictive: "Predictive analysis",
+      support: "Customer service",
       "loan-product": "Boresha loan product",
     };
     return titles[nav] || "SAKONET Network";
@@ -1794,6 +1828,7 @@ export default function SakonetOperatorConsole() {
           {nav === "loans" && <LoansManagementView />}
           {nav === "guarantees" && <GuaranteesView />}
           {nav === "predictive" && <PredictiveView />}
+          {nav === "support" && <OperatorSupport />}
           {nav === "loan-product" && <LoanProductView />}
         </div>
       </div>

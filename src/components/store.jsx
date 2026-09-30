@@ -1,14 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from "react";
 
-const STORAGE_KEY = "sakonet_store_v13"; // bumped — floatHistory added for CLF forecasting
+const STORAGE_KEY = "sakonet_store_v14"; // bumped — Beauty-focused CLF demo seed data
 
 const now = () => new Date().toLocaleTimeString("en-KE", { hour12: false });
 
 const defaultInitialState = {
   saccos: {
-    MKU: { code: "MKU", name: "Mkulima SACCO", contact: "Esther Nyokabi", email: "admin@mkulima.co.ke", phone: "0700000000", registrationNo: "SACCO-MKU-001", networkPin: "482913", apiEndpoint: "/api/v1/sakonet", apiAuth: "X-SACCO-CODE + X-SACCO-PIN", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 0 },
-    BTY: { code: "BTY", name: "Beauty SACCO", contact: "Halima Juma", email: "admin@beautysacco.co.ke", phone: "0711000000", registrationNo: "SACCO-BTY-001", networkPin: "615204", apiEndpoint: "/api/v1/sakonet", apiAuth: "X-SACCO-CODE + X-SACCO-PIN", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 0 },
+    MKU: { code: "MKU", name: "Mkulima SACCO", contact: "Esther Nyokabi", email: "admin@mkulima.co.ke", phone: "0700000000", registrationNo: "SACCO-MKU-001", networkPin: "482913", apiEndpoint: "/api/v1/sakonet", apiAuth: "X-SACCO-CODE + X-SACCO-PIN", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 250000 },
+    BTY: { code: "BTY", name: "Beauty SACCO", contact: "Halima Juma", email: "admin@beautysacco.co.ke", phone: "0711000000", registrationNo: "SACCO-BTY-001", networkPin: "615204", apiEndpoint: "/api/v1/sakonet", apiAuth: "X-SACCO-CODE + X-SACCO-PIN", status: "active", onboarded: true, joined: "02 Sep 2026", totalFloat: 1000000, locked: 780000 },
   },
 
   membersBySacco: {
@@ -31,6 +31,10 @@ const defaultInitialState = {
   requests: {},
   guarantees: {},
   claims: {},
+
+  // Customer service tickets, keyed by ticket id. Each ticket carries its
+  // own message thread. Raised by a SACCO's staff or by one of its members.
+  tickets: {},
 
   notifications: {
     "MK-07741": [],
@@ -65,6 +69,7 @@ function mergeWithDefaults(parsed) {
     requests: { ...defaultInitialState.requests, ...parsed.requests },
     guarantees: { ...defaultInitialState.guarantees, ...parsed.guarantees },
     claims: { ...defaultInitialState.claims, ...parsed.claims },
+    tickets: { ...defaultInitialState.tickets, ...parsed.tickets },
     notifications: { ...defaultInitialState.notifications, ...parsed.notifications },
     sessionAuth: { ...defaultInitialState.sessionAuth, ...parsed.sessionAuth },
     floatHistory: { ...defaultInitialState.floatHistory, ...parsed.floatHistory },
@@ -72,19 +77,26 @@ function mergeWithDefaults(parsed) {
 }
 
 // Deterministic (no Math.random) seed history for a SACCO with no real
-// float-history yet: a rising committed-float ratio over 12 weekly
-// snapshots, ending near the SACCO's current live numbers, with a mild
-// wave so the trend doesn't look artificially straight-line.
-function seedFloatHistory(totalFloat, currentLocked) {
+// float-history yet. Beauty SACCO gets a deliberate rising trend so the
+// CLF model has a genuine slope to extrapolate. Other SACCOs stay flat,
+// mildly noisy and healthy so the predictive-analysis table provides a
+// clear contrast without hard-coding a forecast result.
+function seedFloatHistory(saccoCode, totalFloat, currentLocked) {
   const weeks = 12;
   const nowMs = Date.now();
   const currentRatio = totalFloat > 0 ? currentLocked / totalFloat : 0.3;
+  const isRisingStory = saccoCode === "BTY";
+  const startFrom = isRisingStory ? 0.32 : currentRatio;
+  const drift = isRisingStory ? currentRatio - startFrom : 0;
+  const waveFreq = isRisingStory ? 0.9 : 1.3;
+  const waveAmp = isRisingStory ? 0.015 : 0.02;
+
   const points = [];
   for (let i = weeks; i >= 0; i--) {
     const t = weeks - i; // 0 = oldest, weeks = newest
     const progress = t / weeks;
-    const wave = Math.sin(t * 0.9) * 0.03;
-    const ratio = Math.max(0.05, Math.min(0.95, currentRatio * (0.35 + 0.65 * progress) + wave));
+    const wave = Math.sin(t * waveFreq) * waveAmp;
+    const ratio = Math.max(0.05, Math.min(0.95, startFrom + drift * progress + wave));
     const locked = Math.round(ratio * totalFloat);
     const date = new Date(nowMs - i * 7 * 24 * 60 * 60 * 1000).toISOString();
     points.push({ date, event: "snapshot", amount: 0, totalFloat, locked });
@@ -97,7 +109,7 @@ function ensureFloatHistorySeeded(state) {
   Object.values(next.saccos).forEach((sacco) => {
     const existing = next.floatHistory[sacco.code] || [];
     if (existing.length === 0) {
-      const seeded = seedFloatHistory(sacco.totalFloat, sacco.locked);
+      const seeded = seedFloatHistory(sacco.code, sacco.totalFloat, sacco.locked);
       next = { ...next, floatHistory: { ...next.floatHistory, [sacco.code]: seeded } };
     }
   });
@@ -193,6 +205,15 @@ function makeLoanId() {
   }
   const fallbackSeed = Date.now() ^ (typeof performance !== "undefined" ? Math.floor(performance.now() * 1000) : 0);
   return `L-${timePart}-${(fallbackSeed >>> 0).toString(36).padStart(6, "0")}`;
+}
+
+// Ticket ids (TK-...) and ticket message ids (m-...).
+function makeTicketId(prefix = "TK") {
+  const timePart = Date.now().toString(36);
+  const rand = typeof crypto !== "undefined" && crypto.getRandomValues
+    ? (crypto.getRandomValues(new Uint32Array(1))[0] >>> 0).toString(36).padStart(6, "0")
+    : Math.floor(Math.random() * 2 ** 32).toString(36).padStart(6, "0");
+  return `${prefix}-${timePart}-${rand}`;
 }
 
 const reducerHandlers = {
@@ -320,6 +341,23 @@ const reducerHandlers = {
   "NOTIFY/READ_ALL": (state, { memberNo }) => {
     const list = (state.notifications[memberNo] || []).map((n) => ({ ...n, unread: false }));
     return { ...state, notifications: { ...state.notifications, [memberNo]: list } };
+  },
+
+  "TICKET/CREATE": (state, { ticket }) => ({ ...state, tickets: { ...state.tickets, [ticket.id]: ticket } }),
+
+  "TICKET/REPLY": (state, { ticketId, message, status }) => {
+    const t = state.tickets[ticketId];
+    if (!t) return state;
+    return {
+      ...state,
+      tickets: { ...state.tickets, [ticketId]: { ...t, messages: [...t.messages, message], status: status || t.status, updatedAt: message.at } },
+    };
+  },
+
+  "TICKET/STATUS": (state, { ticketId, status, at }) => {
+    const t = state.tickets[ticketId];
+    if (!t) return state;
+    return { ...state, tickets: { ...state.tickets, [ticketId]: { ...t, status, updatedAt: at } } };
   },
 
   "AUTH/LOGIN": (state, { saccoCode }) => ({
@@ -818,6 +856,53 @@ export function SakonetProvider({ children }) {
     });
   }, [state, log, notify]);
 
+  // ---- Customer service tickets ----
+  const raiseTicket = useCallback(({ saccoCode, raisedByType, memberNo, name, category, priority, subject, description, linkedId }) => {
+    const sub = String(subject || "").trim();
+    const desc = String(description || "").trim();
+    if (!sub) return { ok: false, error: "Enter a subject." };
+    if (!desc) return { ok: false, error: "Describe the issue." };
+    const id = makeTicketId();
+    const at = new Date().toISOString();
+    dispatch({
+      type: "TICKET/CREATE",
+      ticket: {
+        id, saccoCode, raisedByType, memberNo: memberNo || null, raisedByName: name,
+        category, priority, subject: sub, description: desc,
+        linkedId: String(linkedId || "").trim() || null,
+        status: "open", createdAt: at, updatedAt: at,
+        messages: [{ id: makeTicketId("m"), from: raisedByType, name, text: desc, at }],
+      },
+    });
+    const saccoName = state.saccos[saccoCode]?.name || saccoCode;
+    log({ from: name, to: "SAKONET Support", text: `Ticket ${id} raised (${category}, ${priority}) — ${sub}. Source: ${raisedByType === "member" ? `member at ${saccoName}` : saccoName}.`, kind: "network" });
+    return { ok: true, ticketId: id };
+  }, [state, log]);
+
+  const replyToTicket = useCallback((ticketId, { from, name, text }) => {
+    const t = state.tickets[ticketId];
+    const body = String(text || "").trim();
+    if (!t) return { ok: false, error: "Ticket not found." };
+    if (!body) return { ok: false, error: "Write a reply first." };
+    const at = new Date().toISOString();
+    // A reply reopens a finished ticket; an operator's first reply moves it to in progress.
+    const status = (t.status === "resolved" || t.status === "closed") ? "open"
+      : (t.status === "open" && from === "operator") ? "in_progress" : t.status;
+    dispatch({ type: "TICKET/REPLY", ticketId, message: { id: makeTicketId("m"), from, name, text: body, at }, status });
+    if (t.memberNo && from !== "member") {
+      notify(t.memberNo, { type: "sacco", title: `Update on ticket ${t.id}`, body: `${name} replied: ${body.slice(0, 120)}` });
+    }
+    return { ok: true };
+  }, [state, notify]);
+
+  const setTicketStatus = useCallback((ticketId, status, by = "Support") => {
+    const t = state.tickets[ticketId];
+    if (!t) return;
+    dispatch({ type: "TICKET/STATUS", ticketId, status, at: new Date().toISOString() });
+    log({ from: by, to: "SAKONET Support", text: `Ticket ${ticketId} marked ${status.replace("_", " ")}.`, kind: "network" });
+    if (t.memberNo) notify(t.memberNo, { type: "sacco", title: `Ticket ${t.id} ${status.replace("_", " ")}`, body: `Your ticket "${t.subject}" is now ${status.replace("_", " ")}.` });
+  }, [state, log, notify]);
+
   const value = useMemo(() => ({
     state,
     authenticateSaccoApi,
@@ -835,10 +920,13 @@ export function SakonetProvider({ children }) {
     simulateDefault,
     settleClaim,
     simulateRepaid,
+    raiseTicket,
+    replyToTicket,
+    setTicketStatus,
     notify,
     markRead,
     log,
-  }), [state, authenticateSaccoApi, loginSaccoNetwork, logoutSaccoNetwork, createLoan, addLocalGuarantor, precheckGuarantor, getClfForecast, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, disburseLoan, simulateDefault, settleClaim, simulateRepaid, notify, markRead, log]);
+  }), [state, authenticateSaccoApi, loginSaccoNetwork, logoutSaccoNetwork, createLoan, addLocalGuarantor, precheckGuarantor, getClfForecast, sendGuarantorRequest, reviewGuarantorRequest, reviewBeautyIncomingRequest, respondToRequest, disburseLoan, simulateDefault, settleClaim, simulateRepaid, raiseTicket, replyToTicket, setTicketStatus, notify, markRead, log]);
 
   return <SakonetContext.Provider value={value}>{children}</SakonetContext.Provider>;
 }

@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useSakonet } from "./store";
+import LoanChatbot from "./loanChatbot";
+import { MemberSupport } from "./Support";
 import {
   Home, Wallet, Users, Bell, ChevronRight, ChevronLeft, X, Check,
   Clock, ShieldCheck, TrendingUp, Send, FileText, Smartphone,
   CheckCircle2, Circle, Plus,
-  Globe2, Loader2, Paperclip,
+  Globe2, Loader2, Paperclip, Bot, LifeBuoy,
 } from "lucide-react";
+
 
 const c = {
   green: "#0E4432",
@@ -202,6 +205,7 @@ function NavBar({ tab, setTab, unreadCount }) {
     { id: "loans", label: "Loans", icon: Wallet },
     { id: "guarantor", label: "Guarantor", icon: Users },
     { id: "notifications", label: "Alerts", icon: Bell },
+    { id: "help", label: "Help", icon: LifeBuoy },
   ];
   return (
     <div className="flex justify-around items-center px-2 pt-2" style={{ borderTop: `1px solid ${c.border}`, background: c.card, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
@@ -229,7 +233,7 @@ function NavBar({ tab, setTab, unreadCount }) {
   );
 }
 
-function HomeScreen({ goLoans, goGuarantor, goNotifications, onContinueLoan }) {
+function HomeScreen({ goLoans, goGuarantor, goNotifications, goHelp, onContinueLoan, onOpenChat }) {
   const store = useSakonet();
   const myLoans = Object.values(store.state.loans).filter((l) => l.borrowerMemberNo === member.memberNo);
   return (
@@ -269,7 +273,7 @@ function HomeScreen({ goLoans, goGuarantor, goNotifications, onContinueLoan }) {
         {[
           { id: "apply", icon: Wallet, label: "Apply loan", action: goLoans },
           { id: "guarantor", icon: Users, label: "Guarantor", action: goGuarantor },
-          { id: "transfer", icon: Send, label: "Transfer", action: () => {} },
+          { id: "help", icon: LifeBuoy, label: "Help", action: goHelp },
           { id: "statement", icon: FileText, label: "Statement", action: () => {} },
         ].map((it) => (
           <button key={it.id} onClick={it.action} className="flex flex-col items-center gap-2">
@@ -280,6 +284,21 @@ function HomeScreen({ goLoans, goGuarantor, goNotifications, onContinueLoan }) {
           </button>
         ))}
       </div>
+
+      <button
+        onClick={onOpenChat}
+        className="w-full flex items-center gap-3 rounded-2xl p-4 mb-6 text-left"
+        style={{ background: c.sakonetBg, border: `1px solid ${c.sakonetBorder}` }}
+      >
+        <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 42, height: 42, background: c.sakonet, color: "#fff" }}>
+          <Bot size={20} />
+        </div>
+        <div className="flex-1">
+          <p className="inter" style={{ fontSize: 13, fontWeight: 700, color: c.text }}>Ask SAKONET Assistant</p>
+          <p className="inter" style={{ fontSize: 11, color: c.muted, marginTop: 2 }}>Loans, repayments, guarantees & statements</p>
+        </div>
+        <ChevronRight size={17} color={c.sakonet} />
+      </button>
 
       <div className="flex items-center justify-between mb-2">
         <h2 className="sora" style={{ fontSize: 14, fontWeight: 700, color: c.text }}>Your loans</h2>
@@ -584,18 +603,13 @@ function StepProduct({ product, setProduct }) {
 function StepAmount({ amount, setAmount, months, setMonths, product, monthlyInterest, monthlyPayment }) {
   const cap = member.savings * (product?.max || 3);
   const min = 10000;
-  const [draft, setDraft] = useState(amount ? String(amount) : "");
-
-  useEffect(() => {
-    setDraft(amount ? String(amount) : "");
-  }, [amount]);
-
-  const numericAmount = Number(draft.replace(/\D/g, "") || 0);
+  const displayAmount = amount && amount > 0 ? Number(amount).toLocaleString("en-KE") : "";
+  const numericAmount = Number(String(amount).replace(/\D/g, "") || 0);
   const overEligible = numericAmount > cap;
   const belowMinimum = numericAmount > 0 && numericAmount < min;
 
   const commit = () => {
-    const digits = draft.replace(/\D/g, "");
+    const digits = String(amount).replace(/\D/g, "");
     const val = digits === "" ? 0 : Number(digits);
     setAmount(val);
   };
@@ -610,10 +624,9 @@ function StepAmount({ amount, setAmount, months, setMonths, product, monthlyInte
         <input
           type="text"
           inputMode="numeric"
-          value={draft === "" ? "" : Number(draft.replace(/\D/g, "") || 0).toLocaleString("en-KE")}
+          value={displayAmount}
           onChange={(e) => {
             const next = e.target.value.replace(/\D/g, "");
-            setDraft(next);
             setAmount(next === "" ? 0 : Number(next));
           }}
           onBlur={commit}
@@ -1069,10 +1082,6 @@ function ApplyLoan({ onClose, onSubmitted }) {
     if (demoSacco?.onboarded && demoSacco.status === "active") setExtSacco(demoSacco);
   }, [product?.id, extSacco, store.state.saccos.BTY]);
 
-  useEffect(() => {
-    setToast(null);
-  }, [step]);
-
   const eligibleAmount = product ? member.savings * product.max : 0;
   const amountExceedsEligibility = Boolean(product) && Number(amount) > eligibleAmount;
   const amountBelowMinimum = Boolean(product) && Number(amount) > 0 && Number(amount) < 10000;
@@ -1177,6 +1186,9 @@ function ApplyLoan({ onClose, onSubmitted }) {
     const currentLoan = getCurrentLoan();
     if (!currentLoan) return;
 
+    // Restore persisted loan state once when the borrower screen mounts.
+    // These updates intentionally synchronize React state with storage.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoanId(currentLoan.id);
     setProduct((p) => p ?? loanProducts.find((prod) => prod.name === currentLoan.product) ?? null);
     setAmount(currentLoan.amount);
@@ -1203,6 +1215,7 @@ function ApplyLoan({ onClose, onSubmitted }) {
       (r) => r.loanId === currentLoan.id && ["submitted", "returned", "network_routed", "sacco_verified", "notified", "member_responded", "awaiting_sacco_confirmation"].includes(r.stage)
     );
     inFlightRequests.forEach((r) => watchRequest(r.id, r.guarantorSacco));
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1567,6 +1580,7 @@ export default function MkulimaMemberApp() {
   const [loanView, setLoanView] = useState(null);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [requests, setRequests] = useState(guaranteeRequestsInitial);
   const unreadCount = (store.state.notifications[member.memberNo] || []).filter((n) => n.unread).length;
 
@@ -1589,7 +1603,9 @@ export default function MkulimaMemberApp() {
             goLoans={() => setTab("loans")}
             goGuarantor={() => setTab("guarantor")}
             goNotifications={() => setTab("notifications")}
+            goHelp={() => setTab("help")}
             onContinueLoan={() => setApplying(true)}
+            onOpenChat={() => setChatOpen(true)}
           />
         )}
 
@@ -1602,6 +1618,14 @@ export default function MkulimaMemberApp() {
 
         {tab === "guarantor" && <GuarantorScreen requests={requests} setRequests={setRequests} />}
         {tab === "notifications" && <NotificationsScreen />}
+        {tab === "help" && (
+          <div className="flex-1 flex flex-col min-h-0" style={{ background: c.bg }}>
+            <TopBar title="Help & support" />
+            <div className="px-5 pb-4 overflow-y-auto flex-1">
+              <MemberSupport saccoCode="MKU" memberNo={member.memberNo} accent={c.green} />
+            </div>
+          </div>
+        )}
 
         <NavBar tab={tab} setTab={(t) => { setTab(t); setLoanView(null); }} unreadCount={unreadCount} />
 
@@ -1615,6 +1639,10 @@ export default function MkulimaMemberApp() {
               setLoanView("detail");
             }}
           />
+        )}
+
+        {chatOpen && (
+          <LoanChatbot member={member} onClose={() => setChatOpen(false)} />
         )}
       </div>
     </div>
