@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSakonet } from "./store";
 import LoanChatbot from "./loanChatbot";
-import { MemberSupport } from "./Support";
+import { MemberSupport } from "./support";
 import {
   Home, Wallet, Users, Bell, ChevronRight, ChevronLeft, X, Check,
   Clock, ShieldCheck, TrendingUp, Send, FileText, Smartphone,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSakonet } from "./store";
 import SakonetChatbot from "./SakonetChatbot";
-import { SaccoSupport, OperatorSupport } from "./Support";
+import { SaccoSupport, OperatorSupport } from "./support";
 import {
   LayoutGrid, Building2, GitBranch, ShieldCheck, ScrollText, Plus, Wallet,
   ChevronRight, ArrowLeft, Lock, Unlock, CheckCircle2, XCircle,
