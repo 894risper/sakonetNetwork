@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from "react";
 
-const STORAGE_KEY = "sakonet_store_v14"; // bumped — Beauty-focused CLF demo seed data
+const STORAGE_KEY = "sakonet_store_v15"; // bumped — includes demo guarantee-request data
 
 const now = () => new Date().toLocaleTimeString("en-KE", { hour12: false });
 
@@ -27,8 +27,71 @@ const defaultInitialState = {
     ],
   },
 
-  loans: {},
-  requests: {},
+  // Demo loans used by the Guarantee Requests table. These records are
+  // intentionally static so the operator console has realistic data on a
+  // fresh install without requiring the live member flow first.
+  loans: {
+    "LN-MKU-001": {
+      id: "LN-MKU-001", borrowerSacco: "MKU", borrowerMemberNo: "MK-07741",
+      amount: 500000, product: "Boresha 4", stage: "guarantors", repayment: "performing",
+      guarantors: [{ memberNo: "BT-3390", name: "Phoebe Atieno", sacco: "BTY", mode: "sakonet", amount: 100000, status: "submitted" }],
+    },
+    "LN-MKU-002": {
+      id: "LN-MKU-002", borrowerSacco: "MKU", borrowerMemberNo: "MK-05521",
+      amount: 300000, product: "Boresha 3", stage: "guarantors", repayment: "performing",
+      guarantors: [{ memberNo: "BT-3390", name: "Phoebe Atieno", sacco: "BTY", mode: "sakonet", amount: 80000, status: "submitted" }],
+    },
+    "LN-MKU-003": {
+      id: "LN-MKU-003", borrowerSacco: "MKU", borrowerMemberNo: "MK-06210",
+      amount: 250000, product: "Boresha 3", stage: "committee", repayment: "performing",
+      guarantors: [{ memberNo: "BT-1001", name: "Daniel Kiptoo", sacco: "BTY", mode: "sakonet", amount: 60000, status: "secured" }],
+    },
+    "LN-MKU-004": {
+      id: "LN-MKU-004", borrowerSacco: "MKU", borrowerMemberNo: "MK-01987",
+      amount: 180000, product: "Boresha 2", stage: "guarantors", repayment: "performing",
+      guarantors: [{ memberNo: "BT-1002", name: "Fatuma Ali", sacco: "BTY", mode: "sakonet", amount: 50000, status: "rejected" }],
+    },
+    "LN-MKU-005": {
+      id: "LN-MKU-005", borrowerSacco: "MKU", borrowerMemberNo: "MK-01123",
+      amount: 400000, product: "Boresha 4", stage: "guarantors", repayment: "performing",
+      guarantors: [{ memberNo: "BT-3390", name: "Phoebe Atieno", sacco: "BTY", mode: "sakonet", amount: 120000, status: "pending_relay" }],
+    },
+  },
+
+  // Demo guarantee requests make the Requests screen useful immediately.
+  // They cover the main UI states: SACCO review, member response pending,
+  // secured, declined and awaiting SACCO confirmation.
+  requests: {
+    "GR-munw9n9c-a1": {
+      id: "GR-munw9n9c-a1", loanId: "LN-MKU-001", borrowerSacco: "MKU", borrowerMemberNo: "MK-07741",
+      guarantorSacco: "BTY", guarantorMemberNo: "BT-3390", amount: 100000, stage: "beauty_sacco_review",
+      borrowerName: "David Kamau", guarantorName: "Phoebe Atieno", loanAmount: 500000, product: "Boresha 4",
+    },
+    "GR-mumueh6o-b2": {
+      id: "GR-mumueh6o-b2", loanId: "LN-MKU-002", borrowerSacco: "MKU", borrowerMemberNo: "MK-05521",
+      guarantorSacco: "BTY", guarantorMemberNo: "BT-3390", amount: 80000, stage: "notified",
+      borrowerName: "Mary Akinyi", guarantorName: "Phoebe Atieno", loanAmount: 300000, product: "Boresha 3",
+    },
+    "GR-mul5beio-c3": {
+      id: "GR-mul5beio-c3", loanId: "LN-MKU-003", borrowerSacco: "MKU", borrowerMemberNo: "MK-06210",
+      guarantorSacco: "BTY", guarantorMemberNo: "BT-1001", amount: 60000, stage: "sacco_received_confirmation",
+      borrowerName: "Peter Mwenda", guarantorName: "Daniel Kiptoo", loanAmount: 250000, product: "Boresha 3",
+      saccoConfirmation: "accepted", confirmationReceivedBy: "Mkulima SACCO",
+    },
+    "GR-mujx0r40-d4": {
+      id: "GR-mujx0r40-d4", loanId: "LN-MKU-004", borrowerSacco: "MKU", borrowerMemberNo: "MK-01987",
+      guarantorSacco: "BTY", guarantorMemberNo: "BT-1002", amount: 50000, stage: "rejected",
+      borrowerName: "Grace Wambui", guarantorName: "Fatuma Ali", loanAmount: 180000, product: "Boresha 2",
+      declineReason: "Guarantor capacity is currently insufficient for this request.", declinedBy: "Beauty SACCO",
+    },
+    "GR-mui843xc-e5": {
+      id: "GR-mui843xc-e5", loanId: "LN-MKU-005", borrowerSacco: "MKU", borrowerMemberNo: "MK-01123",
+      guarantorSacco: "BTY", guarantorMemberNo: "BT-3390", amount: 120000, stage: "awaiting_sacco_confirmation",
+      borrowerName: "Otieno Kamau", guarantorName: "Phoebe Atieno", loanAmount: 400000, product: "Boresha 4",
+      memberDecision: "accepted", memberRespondedAt: "2026-09-26 10:20:00",
+    },
+  },
+
   guarantees: {},
   claims: {},
 
